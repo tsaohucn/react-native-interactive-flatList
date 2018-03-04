@@ -1,0 +1,25 @@
+{
+  "name": "react-native-comic-book",
+  "version": "1.0.0",
+  "description": "react native comic book",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://git.av-bobo.com/xc/react-native-comic-book.git"
+  },
+  "dependencies": {
+    "prop-types": "^15.5.10"
+  },
+  "keywords": [
+    "react native comic book"
+  ],
+  "author": "Tsao",
+  "license": "ISC",
+  "bugs": {
+    "url": "http://git.av-bobo.com/xc/react-native-comic-book/issues"
+  },
+  "homepage": "http://git.av-bobo.com/xc/react-native-comic-book#readme"
+}
