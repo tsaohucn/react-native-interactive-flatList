@@ -20,7 +20,7 @@ const scrollScaleParam = Platform.OS === 'ios' ? 2*2 : 2
 
 const scaleThreshold = 0.007
 
-export default class PinchZoomView extends Component {
+export default class ComicBook extends Component {
 
   static propTypes = {
     ...View.propTypes,
