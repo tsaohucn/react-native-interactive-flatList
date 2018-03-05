@@ -1,5 +1,5 @@
-import React, { Component } from 'react';
-import PropTypes from 'prop-types';
+import React, { Component } from 'react'
+import PropTypes from 'prop-types'
 import {
   View,
   StyleSheet,
@@ -12,13 +12,15 @@ import {
   Dimensions,
   Button,
   InteractionManager
-} from 'react-native';
+} from 'react-native'
 
 const { width, height } = Dimensions.get('window')
 
-const scrollScaleParam = Platform.OS === 'ios' ? 2*2 : 2
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
 
-const scaleThreshold = 0.007
+//const scrollScaleParam = Platform.OS === 'ios' ? 2*2 : 2
+
+//const scaleThreshold = 0.007
 
 export default class ComicBook extends Component {
 
@@ -26,144 +28,103 @@ export default class ComicBook extends Component {
     ...View.propTypes,
     scalable: PropTypes.bool,
     content: PropTypes.array
-  };
+  }
 
   static defaultProps = {
     scalable: true,
     content: new Array
-  };
+  }
 
   constructor(props) {
-    super(props);
+    super(props)
+    this.state = {
+      isPinch: false
+    }
+    // 縮放
     this.lastDistance = null
     this.animatedScale = new Animated.Value(1)
     this.animatedheight = new Animated.Value(height)
-    this.animatedPositionX = new Animated.Value(0)
-    this.animatedPositionY = new Animated.Value(0)
-    this.pinch = false
-    this.maxScrollY = height
-    this.isTop = true
-    this.isBottom = false
-    this.scrollY = 0
-    this.contentTranslate = 0
-    this.lastScrollY = 0
-    this.lastContentTranslate = 0
-    this.moveCenterX = 0 // 相對正中央
-    this.moveCenterY = 0 // 相對正中央
+    this.animatedoffsetX = new Animated.Value(0)
+    this.animatedoffsetY = new Animated.Value(0)
+    this.focusPointX = 0 // 關注點Ｘ
+    this.focusPointY = 0 // 關注點Ｙ
+    this.isPinch = false
+    this.isSingleRelease = false
+    this.isSpringBack = false
+    // 平移
+    //this.maxScrollY = height
+    //this.isTop = true
+    //this.isBottom = false
+    //this.scrollY = 0
+    //this.contentTranslate = 0
+    //this.lastScrollY = 0
+    //this.lastContentTranslate = 0
 
   }
 
-  componentWillMount() {
+  UNSAFE_componentWillMount() {
     this.gestureHandlers = PanResponder.create({
-      onStartShouldSetPanResponder: this._handleStartShouldSetPanResponder,
-      onStartShouldSetPanResponderCapture: evt => true,
-      onMoveShouldSetPanResponder: this._handleMoveShouldSetPanResponder,
-      onMoveShouldSetPanResponderCapture: evt => true,
+      // Handler
       onPanResponderGrant: this._handlePanResponderGrant,
       onPanResponderMove: this._handlePanResponderMove,
-      onPanResponderRelease: this._handlePanResponderEnd,
-      onPanResponderTerminationRequest: evt => true,
-      onShouldBlockNativeResponder: evt => true,
-      onPanResponderEnd: evt => true
-    });
-  }
-
-  componentDidMount = () => {
-    this.animatedScale.addListener(({value}) => {
-      if (value < 1) {
-        const fixBottomOffset = (this.animatedheight._value/value - this.animatedheight._value)
-        this._flatList.scrollToOffset({animated: true, offset: this.scrollY - fixBottomOffset})
-      }
-    })    
-  }
-
-  componentWillUnmount() {
-    this.animatedScale.removeListener()
-  }
-
-  _handleStartShouldSetPanResponder = (e, gestureState) => {
-    // don't respond to single touch to avoid shielding click on child components
-    if (Platform.OS === 'ios') {
-      return true;
-    } else {
-      return true;
-    }
-  }
-
-  _handleMoveShouldSetPanResponder = (e, gestureState) => {
-    if (Platform.OS === 'ios') {
-      return true;
-    } else {
-      //return this.props.scalable && gestureState.dx > 2 || gestureState.dy > 2 || gestureState.numberActiveTouches === 2;
-      return true; // Android 縮訪抓在Modal裡抓不到
-    }
+      onPanResponderRelease: this._onPanResponderRelease,
+      onResponderTerminate : this._handlePanResponderTerminate,
+      // Setter
+      onStartShouldSetPanResponder: evt => true, // 開始觸碰，是否成為響應者
+      onMoveShouldSetPanResponder: evt => true, // 開始移動，是否成為響應者
+      onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
+      onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
+      onPanResponderTerminationRequest: evt => true, // 有其他響應者，是否釋放響應權
+      onShouldBlockNativeResponder: evt => true // 返回一個布爾值，決定當前組件是否應該阻止原生組件成為JS響應者，默認返回true。目前暫時只支持android
+    })
   }
 
   _handlePanResponderGrant = (e, gestureState) => { 
+    // 此callback手指數會抓錯
   }
-
-  _handlePanResponderEnd =  (e, gestureState) => {
-    this.pinch = false
-    this.lastDistance = null
-    this.lastScrollY = this.scrollY
-    if (this.animatedScale._value > 2) {
-      this._bigSpringBack(2)
-    } else if (this.animatedScale._value >= 1 && this.animatedScale._value <=2) {
-      this._middleSpringBack()
-    } else if (this.animatedScale._value < 1) {
-      this._smallSpringBack(1)
-    }
-    
-  }
-
-
 
   _handlePanResponderMove = (e, gestureState) => {
-    //gestureState.numberActiveTouches 在滑動過程中很容易誤判
-    if (gestureState.numberActiveTouches === 2) { // zoom
-      if (!this.pinch) {
-        this.moveCenterX = ((e.nativeEvent.changedTouches[0].pageX + e.nativeEvent.changedTouches[1].pageX)/2 - width/2)/this.animatedScale._value - this.animatedPositionX._value
-        this.moveCenterY = ((e.nativeEvent.changedTouches[0].pageY + e.nativeEvent.changedTouches[1].pageY)/2 - height/2)/this.animatedScale._value - this.animatedPositionY._value
+    if (gestureState.numberActiveTouches === 2 && !this.isSpringBack) {
+      if (!this.state.isPinch || this.isSingleRelease) { 
+        //新一次雙手觸摸
+        this.focusPointX = ((e.nativeEvent.changedTouches[0].pageX + e.nativeEvent.changedTouches[1].pageX)/2 - width/2)/this.animatedScale._value - this.animatedoffsetX._value
+        this.focusPointY = ((e.nativeEvent.changedTouches[0].pageY + e.nativeEvent.changedTouches[1].pageY)/2 - height/2)/this.animatedScale._value - this.animatedoffsetY._value
       }
-      this.pinch = true
+      this.isSingleRelease = false
+      this.setState({
+        isPinch: true
+      })
       let dx = Math.abs(e.nativeEvent.touches[0].pageX - e.nativeEvent.touches[1].pageX)
       let dy = Math.abs(e.nativeEvent.touches[0].pageY - e.nativeEvent.touches[1].pageY)
       let distance = Math.sqrt(dx * dx + dy * dy)
       if (!this.lastDistance) {
-        this.lastDistance = distance
+        this.lastDistance = distance // 第一次lastDistance不存在給予把第一次的distance當作lastDistance
       }
-      if (this.lastDistance) { // 計算放大倍率
-        let scale = distance/this.lastDistance*this.animatedScale._value
-        if (scale > 3) {
-          scale = 3
-        } else if (scale < 0.5) {
-          scale = 0.5
-        }
-        
-        if (scale === 0.5) {
-          let diffscale = Math.abs(1-scale/this.animatedScale._value)
-          if (diffscale < scaleThreshold) {
-            scale = this.animatedScale._value
-            distance = this.lastDistance
-          }
-        }
-        
-        let positionX = ((e.nativeEvent.changedTouches[0].pageX + e.nativeEvent.changedTouches[1].pageX)/2 - width/2)/scale-this.moveCenterX
-        let positionY = ((e.nativeEvent.changedTouches[0].pageY + e.nativeEvent.changedTouches[1].pageY)/2 - height/2)/scale-this.moveCenterY  
-        if (scale >= 1) {
-          let widthBoundary = (scale*width/2-width/4)/scale
-          let heightBoundary = (scale*height/2-height*3/8)/scale
-          positionX = Math.abs(positionX) > widthBoundary ? widthBoundary*Math.sign(positionX) : positionX
-          positionY = Math.abs(positionY) > heightBoundary ? heightBoundary*Math.sign(positionY) : positionY 
-        } else {
-          positionX = this.animatedPositionX._value
-          positionY = this.animatedPositionY._value
-        }
-        this._animated(positionX,positionY,scale,0)
-        this.lastDistance = distance
+      let scale = distance/this.lastDistance*this.animatedScale._value
+      this.lastDistance = distance
+      if (scale > 3) {
+        scale = 3
+      } else if (scale < 0.5) {
+        scale = 0.5
       }
-      
-    } else if (gestureState.numberActiveTouches === 1 && !this.pinch) {
+      let magnifierCenterX = (e.nativeEvent.changedTouches[0].pageX + e.nativeEvent.changedTouches[1].pageX)/2 - width/2
+      let magnifierCenterY = (e.nativeEvent.changedTouches[0].pageY + e.nativeEvent.changedTouches[1].pageY)/2 - height/2
+      let offsetX = magnifierCenterX/scale-this.focusPointX
+      let offsetY = magnifierCenterY/scale-this.focusPointY  
+      if (scale >= 1) {
+        let offsetBoundaryX = (scale*width/2-width/4)/scale
+        let offsetBoundaryY = (scale*height/2-height*3/8)/scale
+        offsetX = Math.abs(offsetX) > offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) : offsetX
+        offsetY = Math.abs(offsetY) > offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) : offsetY 
+      }
+      this._animation(offsetX,offsetY,scale)
+    } else if (gestureState.numberActiveTouches === 1 && !this.isSpringBack) {
+      if (this.animatedScale._value > 1) {
+
+      } else if (this.animatedScale._value < 1) {
+        this._onPanResponderSingleRelease()
+      }
+      //alert('剩一隻手指')
       // translation
       /*
       if (Math.abs(gestureState.dy) > 0) {
@@ -184,106 +145,99 @@ export default class ComicBook extends Component {
         if (Math.abs(this.contentTranslate) > maxTranslate) {
           this.contentTranslate = Math.sign(this.contentTranslate)*maxTranslate
         }
-        this.animatedPositionX.setValue(this.contentTranslate)
+        this.animatedoffsetX.setValue(this.contentTranslate)
       }
       */
       
     }
     
   }
-  
-  _animatedDirectly = (positionX,positionY,scale) => {
-    this.animatedPositionX.setValue(positionX)
-    this.animatedPositionY.setValue(positionY)
-    this.animatedScale.setValue(scale)   
+
+  _onPanResponderRelease =  (e, gestureState) => {
+    this.setState({
+      isPinch: false
+    })
+    this.lastDistance = null
+    if (this.animatedScale._value > 2) {
+      this._bigSpringBack(2)
+    } else if (this.animatedScale._value >= 1 && this.animatedScale._value <=2) {
+      this._middleSpringBack()
+    } else if (this.animatedScale._value < 1) {
+      this._smallSpringBack(1)
+    }
+    
   }
-  
 
+  _onPanResponderSingleRelease = () => {
+    this.lastDistance = null
+    this.isSingleRelease = true
+    if (this.animatedScale._value > 2) {
+      this._bigSpringBack(2)
+    } else if (this.animatedScale._value >= 1 && this.animatedScale._value <=2) {
+      this._middleSpringBack()
+    } else if (this.animatedScale._value < 1) {
+      this._smallSpringBack(1)
+    }
+  }
 
-  _animated = (positionX,positionY,scale,duration) => {
+  _handlePanResponderTerminate =  (e, gestureState) => {
+    alert('意外取消')
+  }
+
+  _bigSpringBack = scaleValue => {
+    this.isSpringBack = true
+    let offsetX = this._springHideBlackBlock(scaleValue).offsetX
+    let offsetY = this._springHideBlackBlock(scaleValue).offsetY
     Animated.parallel([
-      Animated.timing(this.animatedPositionX,{
-        toValue: positionX,
-        duration: duration
+      Animated.timing(this.animatedoffsetX,{
+        toValue: offsetX,
+        duration: 200
       }),
-      Animated.timing(this.animatedPositionY,{
-        toValue: positionY,
-        duration: duration
+      Animated.timing(this.animatedoffsetY,{
+        toValue: offsetY,
+        duration: 200
       }),
       Animated.timing(this.animatedScale,{
-        toValue: scale,
-        duration: duration
+        toValue: scaleValue,
+        duration: 200
       })
     ]).start(() => {
-      //
-    })    
-  }
-  
-  _springHideBlackBlock = () => {
-    let widthBoundary = (this.animatedScale._value*width/2-width/2)/this.animatedScale._value
-    let heightBoundary = (this.animatedScale._value*height/2-height/2)/this.animatedScale._value
-    let springBackX = this.animatedPositionX._value
-    let springBackY = this.animatedPositionY._value
-    if (Math.abs(this.animatedPositionX._value) > widthBoundary) {
-      springBackX = widthBoundary*Math.sign(this.animatedPositionX._value)
-    }
-    if (Math.abs(this.animatedPositionY._value) > heightBoundary) {
-      springBackY = heightBoundary*Math.sign(this.animatedPositionY._value)
-    }
-    return {springBackX,springBackY}
-  }
-
-  _bigSpringBack = (scaleValue) => {
-    let springBackX = this._springHideBlackBlock().springBackX
-    let springBackY = this._springHideBlackBlock().springBackY
-    Animated.parallel([
-      Animated.timing(this.animatedPositionX,{
-        toValue: springBackX,
-        duration: 200
-      }),
-      Animated.timing(this.animatedPositionY,{
-        toValue: springBackY,
-        duration: 200
-      }),
-      //Animated.timing(this.animatedScale,{
-      //  toValue: scaleValue,
-      //  duration: 200
-      //})
-    ]).start(() => {
-      this.pinch = false
+      this.isSpringBack = false
     })
   }
 
   _middleSpringBack = () => {
-    let springBackX = this._springHideBlackBlock().springBackX
-    let springBackY = this._springHideBlackBlock().springBackY
+    this.isSpringBack = true
+    let offsetX = this._springHideBlackBlock(this.animatedScale._value).offsetX
+    let offsetY = this._springHideBlackBlock(this.animatedScale._value).offsetY
     Animated.parallel([
-      Animated.timing(this.animatedPositionX,{
-        toValue: springBackX,
+      Animated.timing(this.animatedoffsetX,{
+        toValue: offsetX,
         duration: 200
       }),
-      Animated.timing(this.animatedPositionY,{
-        toValue: springBackY,
+      Animated.timing(this.animatedoffsetY,{
+        toValue: offsetY,
         duration: 200
       })
     ]).start(() => {
-      this.pinch = false
+      this.isSpringBack = false
     })
   }
 
   _smallSpringBack = (scaleValue) => {
+    this.isSpringBack = true
     Animated.parallel([
       Animated.timing(this.animatedScale,{
         toValue: scaleValue,
         duration: 200,
         //easing: Easing.out(Easing.ease)
       }),
-      Animated.timing(this.animatedPositionX,{
+      Animated.timing(this.animatedoffsetX,{
         toValue: 0,
         duration: 200,
         //easing: Easing.out(Easing.ease)
       }),
-      Animated.timing(this.animatedPositionY,{
+      Animated.timing(this.animatedoffsetY,{
         toValue: 0,
         duration: 200,
         //easing: Easing.out(Easing.ease)
@@ -293,25 +247,92 @@ export default class ComicBook extends Component {
       //  duration: 200,
         //easing: Easing.out(Easing.ease)
       //}),
-      //Animated.timing(this.animatedPositionX,{
+      //Animated.timing(this.animatedoffsetX,{
       //  toValue: 0,
       //  duration: 200,
         //easing: Easing.out(Easing.ease)
       //})
     ]).start(() => {
-      this.pinch = false
+      this.isSpringBack = false
       //alert(this.animatedScale)
       //this._flatList.scrollToOffset({animated: false, offset: this.scrollY})
       // do something
     })
   }
 
-  onScroll = ({layoutMeasurement, scrollY, contentSize}) => {
-    this.maxScrollY = contentSize.height - layoutMeasurement.height
+  _animation = (offsetX,offsetY,scale) => {
+    this.animatedoffsetX.setValue(offsetX)
+    this.animatedoffsetY.setValue(offsetY)
+    this.animatedScale.setValue(scale)   
+  }
+    
+  _springHideBlackBlock = scale => {
+    let offsetBoundaryX = (scale*width/2-width/2)/scale
+    let offsetBoundaryY = (scale*height/2-height/2)/scale
+    let offsetX = this.animatedoffsetX._value
+    let offsetY = this.animatedoffsetY._value
+    if (Math.abs(this.animatedoffsetX._value) > offsetBoundaryX) {
+      offsetX = offsetBoundaryX*Math.sign(this.animatedoffsetX._value)
+    }
+    if (Math.abs(this.animatedoffsetY._value) > offsetBoundaryY) {
+      offsetY = offsetBoundaryY*Math.sign(this.animatedoffsetY._value)
+    }
+    return {offsetX,offsetY}
   }
 
   render() {
     return (
+      <AnimatedFlatList
+        {...this.gestureHandlers.panHandlers}
+        style={[styles.animatedFlatList,{
+          height: this.animatedheight,
+          transform: [
+            {scaleX: this.animatedScale},
+            {scaleY: this.animatedScale},
+            {translateX: this.animatedoffsetX},
+            {translateY: this.animatedoffsetY}
+          ]
+        }]}
+        contentContainerStyle={styles.contentContainerStyle}
+        ref={flatList => this._flatList = flatList}
+        removeClippedSubviews
+        onEndReachedThreshold={0.1}
+        data={this.props.content}
+        numColumns={1}
+        scrollEnabled={false} // !this.state.isPinch && this.animatedScale._value <= 1
+        showsHorizontalScrollIndicator={false}
+        onScroll={({nativeEvent}) => {
+          //this.onScroll(nativeEvent)
+        }}
+        renderItem={({ item }) =>
+          <Image
+            resizeMode={'contain'} 
+            style={{width, height: item.height, backgroundColor: 'black'}}
+            source={{uri: item.key}}
+            />
+          }
+      />
+    )
+  }
+}
+
+const styles = StyleSheet.create({
+  animatedFlatList: {
+    //
+  },
+  contentContainerStyle: {
+    //justifyContent: 'center',
+    //alignItems: 'center'
+  }
+
+})
+
+/*
+
+  onScroll = ({layoutMeasurement, scrollY, contentSize}) => {
+    //this.maxScrollY = contentSize.height - layoutMeasurement.height
+  }
+
         <Animated.View 
           {...this.gestureHandlers.panHandlers}
             style={[styles.container,
@@ -321,8 +342,8 @@ export default class ComicBook extends Component {
               transform: [
                 {scaleX: this.animatedScale},
                 {scaleY: this.animatedScale},
-                {translateX: this.animatedPositionX},
-                {translateY: this.animatedPositionY}
+                {translateX: this.animatedoffsetX},
+                {translateY: this.animatedoffsetY}
               ]
             }]}
             >
@@ -332,7 +353,7 @@ export default class ComicBook extends Component {
                 onEndReachedThreshold={0.1}
                 data={this.props.content}
                 numColumns={1}
-                scrollEnabled={false}
+                scrollEnabled={true}
                 showsHorizontalScrollIndicator={false}
                 onScroll={({nativeEvent}) => {
                   this.onScroll(nativeEvent)
@@ -346,13 +367,53 @@ export default class ComicBook extends Component {
                 }
               /> 
        </Animated.View>
-    );
-  }
-}
 
-const styles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-    alignItems: 'center'
+*/
+/*
+
+  _handleStartShouldSetPanResponder = (e, gestureState) => {
+    // don't respond to single touch to avoid shielding click on child components
+    if (Platform.OS === 'ios') {
+      return true
+    } else {
+      return false
+    }
   }
-});
+
+  _handleMoveShouldSetPanResponder = (e, gestureState) => {
+    if (Platform.OS === 'ios') {
+      return true
+    } else {
+      //return this.props.scalable && gestureState.dx > 2 || gestureState.dy > 2 || gestureState.numberActiveTouches === 2
+      return false // Android 縮訪抓在Modal裡抓不到
+    }
+  }
+  _animated = (offsetX,offsetY,scale,duration) => {
+    Animated.parallel([
+      Animated.timing(this.animatedoffsetX,{
+        toValue: offsetX,
+        duration: duration
+      }),
+      Animated.timing(this.animatedoffsetY,{
+        toValue: offsetY,
+        duration: duration
+      }),
+      Animated.timing(this.animatedScale,{
+        toValue: scale,
+        duration: duration
+      })
+    ]).start(() => {
+      //
+    })    
+  }
+*/
+
+        /*
+        if (scale === 0.5) {
+          let diffscale = Math.abs(1-scale/this.animatedScale._value)
+          if (diffscale < scaleThreshold) {
+            scale = this.animatedScale._value
+            distance = this.lastDistance
+          }
+        }
+        */
