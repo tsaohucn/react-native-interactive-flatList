@@ -63,6 +63,7 @@ export default class ComicBook extends Component {
     this.lastReleasseClickTime = null
     this.diiffClickTime = 200
     this.isDoubleClicke = false
+    this.contentSize = height
   }
 
   UNSAFE_componentWillMount() {
@@ -180,9 +181,11 @@ export default class ComicBook extends Component {
       }
     } else if (this.lastReleasseClickTime-this.lastClickTime < 200 && !this.isDoubleClicke && !this.isPinch) {
       // 單擊
+      //this.isSingleRelease = true
       this._handleSingleTouch(e.nativeEvent.pageY)
     } else {
       // 雙擊
+      //this.isSingleRelease = true
       if (this.animatedScale._value > 1) { 
         // 縮回 
         Animated.parallel([
@@ -199,8 +202,9 @@ export default class ComicBook extends Component {
             duration: 200
           })
         ]).start(() => {
-          this.isDoubleClicke = false
           this.setState({isScrollEnabled: true})
+          this.isDoubleClicke = false
+          this._resetFlag()
         })
       } else if (this.animatedScale._value === 1) { 
         // 放大
@@ -223,6 +227,7 @@ export default class ComicBook extends Component {
           })
         ]).start(() => {
           this.isDoubleClicke = false
+          this._resetFlag()
         })
       }
 
@@ -359,11 +364,15 @@ export default class ComicBook extends Component {
         //console.warn('跳功能表')
       } else if (pageY > (height*2/3)) {
         const offsetY = (this.contentOffset + height/3)
+        if (offsetY > this.contentSize) {
+          offsetY = this.contentSize
+        }
         this.flatlist.getNode().scrollToOffset({
           offset: offsetY,
           animated: true,
         })
       }
+      this._resetFlag()
     }
   }
 
@@ -374,6 +383,7 @@ export default class ComicBook extends Component {
   _onScroll = ({nativeEvent}) => {
     //const {layoutMeasurement, scrollY, contentSize,contentOffset} = nativeEvent
     this.contentOffset = nativeEvent.contentOffset.y
+    this.contentSize = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height
   }
 
   render() {
