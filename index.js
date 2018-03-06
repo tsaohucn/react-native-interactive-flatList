@@ -262,10 +262,9 @@ export default class ComicBook extends Component {
   _smallSpringBack = (scaleValue,doneCallBack) => {
     // 暫時修復BUG用，滾回原本位置
     this.flatlist.getNode().scrollToOffset({
-        offset: this.contentOffset,
-        animated: true,
-      })
-    }
+      offset: this.contentOffset,
+      animated: true,
+    })
     Animated.parallel([
       Animated.timing(this.animatedScale,{
         toValue: scaleValue,
@@ -376,6 +375,5 @@ const styles = StyleSheet.create({
   contentContainerStyle: {
     //justifyContent: 'center',
     //alignItems: 'center'
-  }
-
-})
+  }}
+)
