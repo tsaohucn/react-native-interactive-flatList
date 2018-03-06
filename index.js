@@ -60,8 +60,9 @@ export default class ComicBook extends Component {
     this.lastTranslateY = 0
     // 點擊
     this.lastClickTime = null
+    this.lastReleasseClickTime = null
     this.diiffClickTime = 200
-    this.doubleClicke = false
+    this.isDoubleClicke = false
   }
 
   UNSAFE_componentWillMount() {
@@ -84,55 +85,19 @@ export default class ComicBook extends Component {
   _handlePanResponderGrant = (e, gestureState) => { 
     // 此callback手指數會抓錯
     // 計算點擊時間
-    if (this.lastClickTime) {
-      this.diiffClickTime = e.nativeEvent.touches[0].timestamp - this.lastClickTime
-    }
-    this.lastClickTime = e.nativeEvent.touches[0].timestamp 
-    // 執行點擊任務
-    if (this.diiffClickTime < 200) { // 雙擊
-      if (this.animatedScale._value > 1) { // 縮回 
-        this.doubleClicke = true
-        Animated.parallel([
-          Animated.timing(this.animatedoffsetX,{
-            toValue: 0,
-            duration: 200
-          }),
-          Animated.timing(this.animatedoffsetY,{
-            toValue: 0,
-            duration: 200
-          }),
-          Animated.timing(this.animatedScale,{
-            toValue: 1,
-            duration: 200
-          })
-        ]).start(() => {
-          this.doubleClicke = false
-          this.setState({isScrollEnabled: true})
-        })
-      } else if (this.animatedScale._value === 1) { // 放大
-        this.doubleClicke = true
-        const focusPointX = (e.nativeEvent.touches[0].pageX - width/2)
-        const focusPointY = (e.nativeEvent.touches[0].pageY - height/2)
-        const offsetX = focusPointX/2-focusPointX // 關注點到雙手中心需要的偏移量
-        const offsetY = focusPointY/2-focusPointY // 關注點到雙手中心需要的偏移量         
-        Animated.parallel([
-          Animated.timing(this.animatedoffsetX,{
-            toValue: offsetX,
-            duration: 200
-          }),
-          Animated.timing(this.animatedoffsetY,{
-            toValue: offsetY,
-            duration: 200
-          }),
-          Animated.timing(this.animatedScale,{
-            toValue: 2,
-            duration: 200
-          })
-        ]).start(() => {
-          this.doubleClicke = false
-        })
+    if (e.nativeEvent.touches) {
+    // 有時後會出現 e.nativeEvent.touches[0] = null bug
+      if (this.lastClickTime) {
+        this.diiffClickTime = e.nativeEvent.touches[0].timestamp - this.lastClickTime
       }
-    } 
+      this.lastClickTime = e.nativeEvent.touches[0].timestamp 
+    }
+    // 執行點擊任務
+    if (this.diiffClickTime < 200) { 
+      // 雙擊，先簡單寫
+      // TODO 還要半段距離跟離開時間，可能判斷雙擊也要改寫到onPanResponderRelease
+      this.isDoubleClicke = true
+    }
   }
 
   _handlePanResponderMove = (e, gestureState) => {
@@ -203,7 +168,9 @@ export default class ComicBook extends Component {
 
   // 全部釋放
   _onPanResponderRelease =  (e, gestureState) => {
-    if (!this.doubleClicke) {
+    this.lastReleasseClickTime = e.nativeEvent.timestamp 
+    if (this.isPinch && !this.isDoubleClicke) {
+      // 縮放
       if (this.animatedScale._value > 2) {
         this._bigSpringBack(2,this._onPanResponderReleaseResetFlag)
       } else if (this.animatedScale._value >= 1 && this.animatedScale._value <= 2) {
@@ -211,6 +178,54 @@ export default class ComicBook extends Component {
       } else if (this.animatedScale._value < 1) {
         this._smallSpringBack(1,this._onPanResponderReleaseResetFlagSmall)
       }
+    } else if (this.lastReleasseClickTime-this.lastClickTime < 200 && !this.isDoubleClicke && !this.isPinch) {
+      // 單擊
+      this._handleSingleTouch(e.nativeEvent.pageY)
+    } else {
+      // 雙擊
+      if (this.animatedScale._value > 1) { 
+        // 縮回 
+        Animated.parallel([
+          Animated.timing(this.animatedoffsetX,{
+            toValue: 0,
+            duration: 200
+          }),
+          Animated.timing(this.animatedoffsetY,{
+            toValue: 0,
+            duration: 200
+          }),
+          Animated.timing(this.animatedScale,{
+            toValue: 1,
+            duration: 200
+          })
+        ]).start(() => {
+          this.isDoubleClicke = false
+          this.setState({isScrollEnabled: true})
+        })
+      } else if (this.animatedScale._value === 1) { 
+        // 放大
+        const focusPointX = (e.nativeEvent.pageX - width/2)
+        const focusPointY = (e.nativeEvent.pageY - height/2)
+        const offsetX = focusPointX/2-focusPointX // 關注點到雙手中心需要的偏移量
+        const offsetY = focusPointY/2-focusPointY // 關注點到雙手中心需要的偏移量         
+        Animated.parallel([
+          Animated.timing(this.animatedoffsetX,{
+            toValue: offsetX,
+            duration: 200
+          }),
+          Animated.timing(this.animatedoffsetY,{
+            toValue: offsetY,
+            duration: 200
+          }),
+          Animated.timing(this.animatedScale,{
+            toValue: 2,
+            duration: 200
+          })
+        ]).start(() => {
+          this.isDoubleClicke = false
+        })
+      }
+
     } 
   }
 
@@ -326,6 +341,34 @@ export default class ComicBook extends Component {
     this.isPinch = false
     this.isTranslate = false
     this.isSingleRelease = true    
+  }
+
+  _handleSingleTouch = async (pageY) => {
+    await this._sleep(200)
+    if (!this.isDoubleClicke) {
+      if (pageY < (height/3)) {
+        const offsetY = (this.contentOffset - height/3)
+        if (offsetY < 0) {
+          offsetY = 0
+        }
+        this.flatlist.getNode().scrollToOffset({
+          offset: offsetY ,
+          animated: true,
+        })
+      } else if (pageY > (height/3) && pageY < (height*2/3)) {
+        //console.warn('跳功能表')
+      } else if (pageY > (height*2/3)) {
+        const offsetY = (this.contentOffset + height/3)
+        this.flatlist.getNode().scrollToOffset({
+          offset: offsetY,
+          animated: true,
+        })
+      }
+    }
+  }
+
+  _sleep = ms => {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   _onScroll = ({nativeEvent}) => {
