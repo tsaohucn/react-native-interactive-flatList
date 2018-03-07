@@ -18,8 +18,6 @@ const { width, height } = Dimensions.get('window')
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
 
-//const scaleThreshold = 0.007
-
 export default class ComicBook extends Component {
 
   static propTypes = {
@@ -39,31 +37,35 @@ export default class ComicBook extends Component {
     this.state = {
       isScrollEnabled: true
     }
-    this.contentOffset = 0
+    // Never Flag
+    this.isNeverPinch = true
+    this.isNeverTranslate = true
+    this.isNeverSingleRelease = true
+    this.isNeverPanResponderMove = true
+    this.isNeverScaleSmall = true
+    this.isNeverCountClick = true
+    this.isNeverFingerTranslate = true
     // 縮放
     this.lastDistance = null
-    this.animatedScale = new Animated.Value(1)
-    this.animatedheight = new Animated.Value(height)
-    this.animatedoffsetX = new Animated.Value(0)
-    this.animatedoffsetY = new Animated.Value(0)
     this.focusPointX = 0 // 關注點Ｘ
     this.focusPointY = 0 // 關注點Ｙ
-    this.isPinch = false
-    this.everSmallScale = false
-    this.isSingleRelease = false
-    this.amplificationFactor = 1
+    this.animatedScale = new Animated.Value(1)
+    this.animatedoffsetX = new Animated.Value(0)
+    this.animatedoffsetY = new Animated.Value(0)
     // 平移
-    this.isTranslate = false
     this.lastTranslateMoveX = null
     this.lastTranslateMoveY = null
     this.lastTranslateX = 0
     this.lastTranslateY = 0
-    // 點擊
-    this.lastClickTime = null
-    this.lastReleasseClickTime = null
-    this.diiffClickTime = 200
-    this.isDoubleClicke = false
-    this.contentSize = height
+    // 單擊 雙擊
+    this.clickCount = 0
+    this.singleFingerStayCount = 0
+    this.clickX = null
+    this.clickY = null
+    this.singleClickX = null
+    this.singleClickY = null
+    this.scrollOffset = 0
+    this.contentSize = null
   }
 
   UNSAFE_componentWillMount() {
@@ -84,57 +86,45 @@ export default class ComicBook extends Component {
   }
 
   _handlePanResponderGrant = (e, gestureState) => { 
-    // 此callback手指數會抓錯
-    // 計算點擊時間
     if (e.nativeEvent.touches) {
-    // 有時後會出現 e.nativeEvent.touches[0] = null bug
-      if (this.lastClickTime) {
-        this.diiffClickTime = e.nativeEvent.touches[0].timestamp - this.lastClickTime
-      }
-      this.lastClickTime = e.nativeEvent.touches[0].timestamp 
-    }
-    // 執行點擊任務
-    if (this.diiffClickTime < 200) { 
-      // 雙擊，先簡單寫
-      // TODO 還要半段距離跟離開時間，可能判斷雙擊也要改寫到onPanResponderRelease
-      this.isDoubleClicke = true
+      this.clickX = e.nativeEvent.touches[0].pageX
+      this.clickY = e.nativeEvent.touches[0].pageY
     }
   }
 
   _handlePanResponderMove = (e, gestureState) => {
+    this.isNeverPanResponderMove = false
     if (gestureState.numberActiveTouches === 2) {
-      // 計算放大倍數
-      this.setState({isScrollEnabled: false}) // 縮放時屏蔽滾動
+      // 計算放大倍數 // 縮放時屏蔽滾動
       const dx = Math.abs(e.nativeEvent.touches[0].pageX - e.nativeEvent.touches[1].pageX)
       const dy = Math.abs(e.nativeEvent.touches[0].pageY - e.nativeEvent.touches[1].pageY)
       const distance = Math.sqrt(dx * dx + dy * dy)
       if (!this.lastDistance) {
+        this.setState({isScrollEnabled: false})
         this.lastDistance = distance // 第一次lastDistance不存在給予把第一次的distance當作lastDistance
       }
-      const scale = (1+(distance - this.lastDistance)*this.amplificationFactor/this.lastDistance)*this.animatedScale._value
+      const scale = (1+(distance - this.lastDistance)/this.lastDistance)*this.animatedScale._value
       this.lastDistance = distance
       if (scale > 3) {
         scale = 3
       } else if (scale < 1) {
-        this.everSmallScale = true
+        this.isNeverScaleSmall = false
         if (scale < 0.5) {
           scale = 0.5
         }
       }
       // 計算偏移距離
-      if (!this.isPinch) { 
+      if (this.isNeverPinch) { 
         // 新一次雙手觸摸鎖定關注點 // 放大到縮小重置縮放 // 如果單手離開螢幕也算重置縮放
         this.focusPointX = ((e.nativeEvent.touches[0].pageX + e.nativeEvent.touches[1].pageX)/2 - width/2)/this.animatedScale._value - this.animatedoffsetX._value
         this.focusPointY = ((e.nativeEvent.touches[0].pageY + e.nativeEvent.touches[1].pageY)/2 - height/2)/this.animatedScale._value - this.animatedoffsetY._value
+        this.isNeverPinch = false // 第一次縮放？
       }
-      this.isPinch = true // 現在是縮放？
-      this.isTranslate = false // 現在是平移？
-      this.isSingleRelease = false // 現在是單手放開？
       const magnifierCenterX = (e.nativeEvent.touches[0].pageX + e.nativeEvent.touches[1].pageX)/2 - width/2 // 目前雙手中心
       const magnifierCenterY = (e.nativeEvent.touches[0].pageY + e.nativeEvent.touches[1].pageY)/2 - height/2 // 目前雙手中心
       const offsetX = magnifierCenterX/scale-this.focusPointX // 關注點到雙手中心需要的偏移量
       const offsetY = magnifierCenterY/scale-this.focusPointY // 關注點到雙手中心需要的偏移量 
-      if (scale >= 1 && !this.everSmallScale) { 
+      if (scale >= 1 && this.isNeverScaleSmall) { 
         // 限制放大超過邊界時的偏移速度
         const offsetBoundaryX = (scale*width/2-width/2)/scale
         const offsetBoundaryY = (scale*height/2-height/2)/scale
@@ -142,18 +132,25 @@ export default class ComicBook extends Component {
         offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(scale*1.5)) : offsetY
       }
       this._animation(offsetX,offsetY,scale,12)
+      
     } else if (gestureState.numberActiveTouches === 1) {
-      if (!this.isSingleRelease) {
+      if (gestureState.dx === 0 && gestureState.dy === 0) {
+        this.singleFingerStayCount += 1 // 單手停留
+      } else {
+        this.isNeverFingerTranslate = false // 移動過
+      }
+      if (!this.isNeverPinch && this.isNeverSingleRelease) {
+        this.isNeverSingleRelease = false
         this._onPanResponderSingleRelease()
-      } else if (this.isSingleRelease && this.animatedScale._value > 1 && Math.abs(gestureState.dx) > 0) {
-        // 平移 ? 要在動畫完成後才平移？
-        if (!this.isTranslate) { // 第一次平移觸摸時平移量
+      } else if (this.animatedScale._value > 1 && Math.abs(gestureState.dx) > 0 && this.isNeverSingleRelease && this.isNeverPinch) {
+        // 要平移一定要先放大 再釋放單手或雙手 平移 ? 要在動畫完成後才平移？
+        if (this.isNeverTranslate) { // 第一次平移觸摸時平移量
           this.lastTranslateX = this.animatedoffsetX._value
           this.lastTranslateY = this.animatedoffsetY._value
           this.lastTranslateMoveX = gestureState.dx
           this.lastTranslateMoveY = gestureState.dy
+          this.isNeverTranslate = false
         }
-        this.isTranslate = true
         const offsetBoundaryX = (this.animatedScale._value*width/2-width/2)/this.animatedScale._value
         const offsetBoundaryY = (this.animatedScale._value*height/2-height/2)/this.animatedScale._value
         const offsetX = this.lastTranslateX + (gestureState.dx - this.lastTranslateMoveX)/2
@@ -163,75 +160,52 @@ export default class ComicBook extends Component {
         this.animatedoffsetX.setValue(offsetX)
         this.animatedoffsetY.setValue(offsetY)        
       }
+      
     }
-    
+   
   }
-
+  
   // 全部釋放
-  _onPanResponderRelease =  (e, gestureState) => {
-    this.lastReleasseClickTime = e.nativeEvent.timestamp 
-    if (this.isPinch && !this.isDoubleClicke) {
-      // 縮放
+  _onPanResponderRelease =  async (e, gestureState) => {
+    if (this.isNeverPanResponderMove || (this.singleFingerStayCount === 1 && this.isNeverFingerTranslate)) {   
+      this.isNeverPanResponderMove = true
+      this.isNeverFingerTranslate = true
+      this.singleFingerStayCount = 0
+      if (this.isNeverCountClick) {
+        this.isNeverCountClick = false // 如果是時間區間第一次點擊則屏蔽後面點擊
+        this.singleClickX = this.clickX
+        this.singleClickY = this.clickY
+        await this._sleep(200)
+        if (this.clickCount > 0) {
+          this.isNeverCountClick = true
+          this.clickCount = 0
+          this._handleDoubleClick(this.singleClickX,this.singleClickY)
+        } else {
+          this.isNeverCountClick = true
+          this.clickCount = 0
+          this._handleSingleClick(this.singleClickY)
+        }
+      } else {
+        const dx = this.clickX - this.singleClickX
+        const dy = this.clickY - this.singleClickY
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        if (distance < 100) {
+          this.clickCount += 1
+        }        
+      }
+    } else {
+      // 滑動 縮放 釋放
+      this.isNeverPanResponderMove = true
+      this.isNeverFingerTranslate = true
+      this.singleFingerStayCount = 0
       if (this.animatedScale._value > 2) {
         this._bigSpringBack(2,this._onPanResponderReleaseResetFlag)
       } else if (this.animatedScale._value >= 1 && this.animatedScale._value <= 2) {
         this._middleSpringBack(null,this._onPanResponderReleaseResetFlag)
       } else if (this.animatedScale._value < 1) {
         this._smallSpringBack(1,this._onPanResponderReleaseResetFlagSmall)
-      }
-    } else if (this.lastReleasseClickTime-this.lastClickTime < 200 && !this.isDoubleClicke && !this.isPinch) {
-      // 單擊
-      //this.isSingleRelease = true
-      this._handleSingleTouch(e.nativeEvent.pageY)
-    } else {
-      // 雙擊
-      //this.isSingleRelease = true
-      if (this.animatedScale._value > 1) { 
-        // 縮回 
-        Animated.parallel([
-          Animated.timing(this.animatedoffsetX,{
-            toValue: 0,
-            duration: 200
-          }),
-          Animated.timing(this.animatedoffsetY,{
-            toValue: 0,
-            duration: 200
-          }),
-          Animated.timing(this.animatedScale,{
-            toValue: 1,
-            duration: 200
-          })
-        ]).start(() => {
-          this.setState({isScrollEnabled: true})
-          this.isDoubleClicke = false
-          this._resetFlag()
-        })
-      } else if (this.animatedScale._value === 1) { 
-        // 放大
-        const focusPointX = (e.nativeEvent.pageX - width/2)
-        const focusPointY = (e.nativeEvent.pageY - height/2)
-        const offsetX = focusPointX/2-focusPointX // 關注點到雙手中心需要的偏移量
-        const offsetY = focusPointY/2-focusPointY // 關注點到雙手中心需要的偏移量         
-        Animated.parallel([
-          Animated.timing(this.animatedoffsetX,{
-            toValue: offsetX,
-            duration: 200
-          }),
-          Animated.timing(this.animatedoffsetY,{
-            toValue: offsetY,
-            duration: 200
-          }),
-          Animated.timing(this.animatedScale,{
-            toValue: 2,
-            duration: 200
-          })
-        ]).start(() => {
-          this.isDoubleClicke = false
-          this._resetFlag()
-        })
-      }
-
-    } 
+      }      
+    }
   }
 
   // 單手釋放
@@ -282,7 +256,7 @@ export default class ComicBook extends Component {
   _smallSpringBack = (scaleValue,doneCallBack) => {
     // 暫時修復BUG用，滾回原本位置
     this.flatlist.getNode().scrollToOffset({
-      offset: this.contentOffset,
+      offset: this.scrollOffset,
       animated: true,
     })
     Animated.parallel([
@@ -327,7 +301,7 @@ export default class ComicBook extends Component {
   }
 
   _onPanResponderReleaseResetFlag = () => {
-    this.everSmallScale = false
+    this.isNeverScaleSmall = true
     this._resetFlag()
   }
 
@@ -342,38 +316,79 @@ export default class ComicBook extends Component {
   }
 
   _resetFlag = () => {
+    this.isNeverPinch = true
+    this.isNeverTranslate = true
+    this.isNeverSingleRelease = true
     this.lastDistance = null
-    this.isPinch = false
-    this.isTranslate = false
-    this.isSingleRelease = true    
   }
 
-  _handleSingleTouch = async (pageY) => {
-    await this._sleep(200)
-    if (!this.isDoubleClicke) {
-      if (pageY < (height/3)) {
-        const offsetY = (this.contentOffset - height/3)
-        if (offsetY < 0) {
-          offsetY = 0
-        }
-        this.flatlist.getNode().scrollToOffset({
-          offset: offsetY ,
-          animated: true,
-        })
-      } else if (pageY > (height/3) && pageY < (height*2/3)) {
-        //console.warn('跳功能表')
-      } else if (pageY > (height*2/3)) {
-        const offsetY = (this.contentOffset + height/3)
+  _handleSingleClick = (pageY) => {
+    if (pageY <= height/3) {
+      const offsetY = (this.scrollOffset - height/3)
+      if (offsetY < 0) {
+        offsetY = 0
+      }
+      this.flatlist.getNode().scrollToOffset({
+        offset: offsetY ,
+        animated: true,
+      })
+    } else if (pageY > height/3 && pageY < height*2/3) {
+      //console.warn('選單')
+    } else {
+      const offsetY = (this.scrollOffset + height/3)
+      if (this.contentSize) {
         if (offsetY > this.contentSize) {
           offsetY = this.contentSize
         }
-        this.flatlist.getNode().scrollToOffset({
-          offset: offsetY,
-          animated: true,
-        })
       }
-      this._resetFlag()
+      this.flatlist.getNode().scrollToOffset({
+        offset: offsetY ,
+        animated: true,
+      })
     }
+  }
+
+  _handleDoubleClick = (pageX,pageY) => {
+    if (this.animatedScale._value > 1) { 
+      Animated.parallel([
+        Animated.timing(this.animatedoffsetX,{
+          toValue: 0,
+          duration: 200
+        }),
+        Animated.timing(this.animatedoffsetY,{
+          toValue: 0,
+          duration: 200
+        }),
+        Animated.timing(this.animatedScale,{
+          toValue: 1,
+          duration: 200
+        })
+      ]).start(() => {
+        this.setState({isScrollEnabled: true})
+        this._resetFlag()
+      })
+    } else if (this.animatedScale._value === 1) { 
+      const focusPointX = (pageX - width/2)
+      const focusPointY = (pageY - height/2)
+      const offsetX = focusPointX/2-focusPointX // 關注點到雙手中心需要的偏移量
+      const offsetY = focusPointY/2-focusPointY // 關注點到雙手中心需要的偏移量         
+      Animated.parallel([
+        Animated.timing(this.animatedoffsetX,{
+          toValue: offsetX,
+          duration: 200
+        }),
+        Animated.timing(this.animatedoffsetY,{
+          toValue: offsetY,
+          duration: 200
+        }),
+        Animated.timing(this.animatedScale,{
+          toValue: 2,
+          duration: 200
+        })
+      ]).start(() => {
+        this._resetFlag()
+      })
+    }    
   }
 
   _sleep = ms => {
@@ -382,7 +397,7 @@ export default class ComicBook extends Component {
 
   _onScroll = ({nativeEvent}) => {
     //const {layoutMeasurement, scrollY, contentSize,contentOffset} = nativeEvent
-    this.contentOffset = nativeEvent.contentOffset.y
+    this.scrollOffset = nativeEvent.contentOffset.y
     this.contentSize = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height
   }
 
@@ -391,7 +406,6 @@ export default class ComicBook extends Component {
       <AnimatedFlatList
         {...this.gestureHandlers.panHandlers}
         style={[styles.animatedFlatList,{
-          height: this.animatedheight,
           transform: [
             {scaleX: this.animatedScale},
             {scaleY: this.animatedScale},
