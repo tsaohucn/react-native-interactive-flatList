@@ -36,7 +36,10 @@ export default class ComicBook extends Component {
     super(props)
     // 滾動
     this.state = {
-      isScrollEnabled: true
+      isScrollEnabled: true,
+      animatedScale: new Animated.Value(1),
+      animatedoffsetX: new Animated.Value(0),
+      animatedoffsetY: new Animated.Value(0)
     }
     // Never Flag
     this.isNeverPinch = true
@@ -50,9 +53,9 @@ export default class ComicBook extends Component {
     this.lastDistance = null
     this.focusPointX = 0 // 關注點Ｘ
     this.focusPointY = 0 // 關注點Ｙ
-    this.animatedScale = new Animated.Value(1)
-    this.animatedoffsetX = new Animated.Value(0)
-    this.animatedoffsetY = new Animated.Value(0)
+    //this.state.animatedScale = new Animated.Value(1)
+    //this.state.animatedoffsetX = new Animated.Value(0)
+    //this.state.animatedoffsetY = new Animated.Value(0)
     // 平移
     this.lastTranslateMoveX = null
     this.lastTranslateMoveY = null
@@ -107,7 +110,7 @@ export default class ComicBook extends Component {
         this.flatlist.setNativeProps({scrollEnabled: false})
         this.lastDistance = distance // 第一次lastDistance不存在給予把第一次的distance當作lastDistance
       }
-      const scale = (1+(distance - this.lastDistance)/this.lastDistance)*this.animatedScale._value
+      const scale = (1+(distance - this.lastDistance)/this.lastDistance)*this.state.animatedScale._value
       this.lastDistance = distance
       if (scale > 3) {
         scale = 3
@@ -120,8 +123,8 @@ export default class ComicBook extends Component {
       // 計算偏移距離
       if (this.isNeverPinch) { 
         // 新一次雙手觸摸鎖定關注點 // 放大到縮小重置縮放 // 如果單手離開螢幕也算重置縮放
-        this.focusPointX = ((e.nativeEvent.touches[0].pageX + e.nativeEvent.touches[1].pageX)/2 - width/2)/this.animatedScale._value - this.animatedoffsetX._value
-        this.focusPointY = ((e.nativeEvent.touches[0].pageY + e.nativeEvent.touches[1].pageY)/2 - height/2)/this.animatedScale._value - this.animatedoffsetY._value
+        this.focusPointX = ((e.nativeEvent.touches[0].pageX + e.nativeEvent.touches[1].pageX)/2 - width/2)/this.state.animatedScale._value - this.state.animatedoffsetX._value
+        this.focusPointY = ((e.nativeEvent.touches[0].pageY + e.nativeEvent.touches[1].pageY)/2 - height/2)/this.state.animatedScale._value - this.state.animatedoffsetY._value
         this.isNeverPinch = false // 第一次縮放？
       }
       const magnifierCenterX = (e.nativeEvent.touches[0].pageX + e.nativeEvent.touches[1].pageX)/2 - width/2 // 目前雙手中心
@@ -146,23 +149,23 @@ export default class ComicBook extends Component {
       if (!this.isNeverPinch && this.isNeverSingleRelease) {
         this.isNeverSingleRelease = false
         this._onPanResponderSingleRelease()
-      } else if (this.animatedScale._value > 1 && Math.abs(gestureState.dx) > 0 && this.isNeverSingleRelease && this.isNeverPinch) {
+      } else if (this.state.animatedScale._value > 1 && Math.abs(gestureState.dx) > 0 && this.isNeverSingleRelease && this.isNeverPinch) {
         // 要平移一定要先放大 再釋放單手或雙手 平移 ? 要在動畫完成後才平移？
         if (this.isNeverTranslate) { // 第一次平移觸摸時平移量
-          this.lastTranslateX = this.animatedoffsetX._value
-          this.lastTranslateY = this.animatedoffsetY._value
+          this.lastTranslateX = this.state.animatedoffsetX._value
+          this.lastTranslateY = this.state.animatedoffsetY._value
           this.lastTranslateMoveX = gestureState.dx
           this.lastTranslateMoveY = gestureState.dy
           this.isNeverTranslate = false
         }
-        const offsetBoundaryX = (this.animatedScale._value*width/2-width/2)/this.animatedScale._value
-        const offsetBoundaryY = (this.animatedScale._value*height/2-height/2)/this.animatedScale._value
+        const offsetBoundaryX = (this.state.animatedScale._value*width/2-width/2)/this.state.animatedScale._value
+        const offsetBoundaryY = (this.state.animatedScale._value*height/2-height/2)/this.state.animatedScale._value
         const offsetX = this.lastTranslateX + (gestureState.dx - this.lastTranslateMoveX)/2
         const offsetY = this.lastTranslateY + (gestureState.dy - this.lastTranslateMoveY)/2
-        offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/this.animatedScale._value) : offsetX
-        offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(this.animatedScale._value*1.5)) : offsetY
-        this.animatedoffsetX.setValue(offsetX)
-        this.animatedoffsetY.setValue(offsetY)        
+        offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/this.state.animatedScale._value) : offsetX
+        offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(this.state.animatedScale._value*1.5)) : offsetY
+        this.state.animatedoffsetX.setValue(offsetX)
+        this.state.animatedoffsetY.setValue(offsetY)        
       }
       
     }
@@ -206,13 +209,13 @@ export default class ComicBook extends Component {
       this.isNeverPanResponderMove = true
       this.isNeverFingerTranslate = true
       this.singleFingerStayCount = 0
-      if (this.animatedScale._value > 2) {
+      if (this.state.animatedScale._value > 2) {
         this._onPanResponderReleaseResetFlag()
         this._bigSpringBack(2)
-      } else if (this.animatedScale._value >= 1 && this.animatedScale._value <= 2) {
+      } else if (this.state.animatedScale._value >= 1 && this.state.animatedScale._value <= 2) {
         this._onPanResponderReleaseResetFlag()
         this._middleSpringBack(null)
-      } else if (this.animatedScale._value < 1) {
+      } else if (this.state.animatedScale._value < 1) {
         this._onPanResponderReleaseResetFlagSmall()
         this._smallSpringBack(1)
       }      
@@ -221,13 +224,13 @@ export default class ComicBook extends Component {
 
   // 單手釋放
   _onPanResponderSingleRelease = () => {
-    if (this.animatedScale._value > 2) {
+    if (this.state.animatedScale._value > 2) {
       this._onPanResponderSingleReleaseResetFlag()
       this._bigSpringBack(2)
-    } else if (this.animatedScale._value > 1 && this.animatedScale._value <= 2) {
+    } else if (this.state.animatedScale._value > 1 && this.state.animatedScale._value <= 2) {
       this._onPanResponderSingleReleaseResetFlag()
       this._middleSpringBack(null)
-    } else if (this.animatedScale._value <= 1) {
+    } else if (this.state.animatedScale._value <= 1) {
       this._onPanResponderSingleReleaseResetFlagSmall()
       this._smallSpringBack(1)
     }
@@ -239,15 +242,15 @@ export default class ComicBook extends Component {
 
   _bigSpringBack = (scaleValue,doneCallBack) => {
     Animated.parallel([
-      Animated.timing(this.animatedoffsetX,{
+      Animated.timing(this.state.animatedoffsetX,{
         toValue: this._springHideBlackBlock(scaleValue).offsetX,
         duration: 200
       }),
-      Animated.timing(this.animatedoffsetY,{
+      Animated.timing(this.state.animatedoffsetY,{
         toValue: this._springHideBlackBlock(scaleValue).offsetY,
         duration: 200
       }),
-      Animated.timing(this.animatedScale,{
+      Animated.timing(this.state.animatedScale,{
         toValue: scaleValue,
         duration: 200
       })
@@ -258,12 +261,12 @@ export default class ComicBook extends Component {
 
   _middleSpringBack = (scaleValue,doneCallBack) => {
     Animated.parallel([
-      Animated.timing(this.animatedoffsetX,{
-        toValue: this._springHideBlackBlock(this.animatedScale._value).offsetX,
+      Animated.timing(this.state.animatedoffsetX,{
+        toValue: this._springHideBlackBlock(this.state.animatedScale._value).offsetX,
         duration: 200
       }),
-      Animated.timing(this.animatedoffsetY,{
-        toValue: this._springHideBlackBlock(this.animatedScale._value).offsetY,
+      Animated.timing(this.state.animatedoffsetY,{
+        toValue: this._springHideBlackBlock(this.state.animatedScale._value).offsetY,
         duration: 200
       })
     ]).start(() => {
@@ -273,15 +276,15 @@ export default class ComicBook extends Component {
 
   _smallSpringBack = (scaleValue,doneCallBack) => {
     Animated.parallel([
-      Animated.timing(this.animatedScale,{
+      Animated.timing(this.state.animatedScale,{
         toValue: scaleValue,
         duration: 200,
       }),
-      Animated.timing(this.animatedoffsetX,{
+      Animated.timing(this.state.animatedoffsetX,{
         toValue: 0,
         duration: 200,
       }),
-      Animated.timing(this.animatedoffsetY,{
+      Animated.timing(this.state.animatedoffsetY,{
         toValue: 0,
         duration: 200,
       })
@@ -296,21 +299,21 @@ export default class ComicBook extends Component {
   }
   
   _animation = (offsetX,offsetY,scale) => {
-    this.animatedoffsetX.setValue(offsetX)
-    this.animatedoffsetY.setValue(offsetY)
-    this.animatedScale.setValue(scale)   
+    this.state.animatedoffsetX.setValue(offsetX)
+    this.state.animatedoffsetY.setValue(offsetY)
+    this.state.animatedScale.setValue(scale)   
   }
 
   _springHideBlackBlock = scale => {
     const offsetBoundaryX = (scale*width/2-width/2)/scale
     const offsetBoundaryY = (scale*height/2-height/2)/scale
-    let offsetX = this.animatedoffsetX._value
-    let offsetY = this.animatedoffsetY._value
-    if (Math.abs(this.animatedoffsetX._value) > offsetBoundaryX) {
-      offsetX = offsetBoundaryX*Math.sign(this.animatedoffsetX._value)
+    let offsetX = this.state.animatedoffsetX._value
+    let offsetY = this.state.animatedoffsetY._value
+    if (Math.abs(this.state.animatedoffsetX._value) > offsetBoundaryX) {
+      offsetX = offsetBoundaryX*Math.sign(this.state.animatedoffsetX._value)
     }
-    if (Math.abs(this.animatedoffsetY._value) > offsetBoundaryY) {
-      offsetY = offsetBoundaryY*Math.sign(this.animatedoffsetY._value)
+    if (Math.abs(this.state.animatedoffsetY._value) > offsetBoundaryY) {
+      offsetY = offsetBoundaryY*Math.sign(this.state.animatedoffsetY._value)
     }
     return {offsetX,offsetY}
   }
@@ -376,17 +379,17 @@ export default class ComicBook extends Component {
   }
 
   _handleDoubleClick = (pageX,pageY) => {
-    if (this.animatedScale._value > 1) { 
+    if (this.state.animatedScale._value > 1) { 
       Animated.parallel([
-        Animated.timing(this.animatedoffsetX,{
+        Animated.timing(this.state.animatedoffsetX,{
           toValue: 0,
           duration: 200
         }),
-        Animated.timing(this.animatedoffsetY,{
+        Animated.timing(this.state.animatedoffsetY,{
           toValue: 0,
           duration: 200
         }),
-        Animated.timing(this.animatedScale,{
+        Animated.timing(this.state.animatedScale,{
           toValue: 1,
           duration: 200
         })
@@ -398,21 +401,21 @@ export default class ComicBook extends Component {
         this.isNeverCountClick = true
         this.isInAnimated = false
       })
-    } else if (this.animatedScale._value === 1) { 
+    } else if (this.state.animatedScale._value === 1) { 
       const focusPointX = (pageX - width/2)
       const focusPointY = (pageY - height/2)
       const offsetX = focusPointX/2-focusPointX // 關注點到雙手中心需要的偏移量
       const offsetY = focusPointY/2-focusPointY // 關注點到雙手中心需要的偏移量         
       Animated.parallel([
-        Animated.timing(this.animatedoffsetX,{
+        Animated.timing(this.state.animatedoffsetX,{
           toValue: offsetX,
           duration: 200
         }),
-        Animated.timing(this.animatedoffsetY,{
+        Animated.timing(this.state.animatedoffsetY,{
           toValue: offsetY,
           duration: 200
         }),
-        Animated.timing(this.animatedScale,{
+        Animated.timing(this.state.animatedScale,{
           toValue: 2,
           duration: 200
         })
@@ -441,10 +444,10 @@ export default class ComicBook extends Component {
         {...this.gestureHandlers.panHandlers}
         style={[styles.animatedFlatList,{
           transform: [
-            {scaleX: this.animatedScale},
-            {scaleY: this.animatedScale},
-            {translateX: this.animatedoffsetX},
-            {translateY: this.animatedoffsetY}
+            {scaleX: this.state.animatedScale},
+            {scaleY: this.state.animatedScale},
+            {translateX: this.state.animatedoffsetX},
+            {translateY: this.state.animatedoffsetY}
           ]
         }]}
         contentContainerStyle={styles.contentContainerStyle}
