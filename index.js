@@ -67,6 +67,8 @@ export default class ComicBook extends Component {
     this.singleClickY = null
     this.scrollOffset = 0
     this.contentSize = null
+    //
+    this.isInAnimated = false
   }
 
   UNSAFE_componentWillMount() {
@@ -77,10 +79,10 @@ export default class ComicBook extends Component {
       onPanResponderRelease: this._onPanResponderRelease,
       onResponderTerminate : this._handlePanResponderTerminate,
       // Setter
-      onStartShouldSetPanResponder: evt => true, // 開始觸碰，是否成為響應者
-      onMoveShouldSetPanResponder: evt => true, // 開始移動，是否成為響應者
-      onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
-      onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
+      onStartShouldSetPanResponder: evt => !this.isInAnimated, // 開始觸碰，是否成為響應者
+      onMoveShouldSetPanResponder: evt => !this.isInAnimated, // 開始移動，是否成為響應者
+      //onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
+      //onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
       onPanResponderTerminationRequest: evt => true, // 有其他響應者，是否釋放響應權
       onShouldBlockNativeResponder: evt => true // 返回一個布爾值，決定當前組件是否應該阻止原生組件成為JS響應者，默認返回true。目前暫時只支持android
     })
@@ -178,14 +180,13 @@ export default class ComicBook extends Component {
         this.singleClickY = this.clickY
         this.timer = setTimeout(() => {
           if (this.clickCount > 0) {
-            this.isNeverCountClick = true
-            this.clickCount = 0
-            this.timer && clearTimeout(this.timer)
+            this.setState({isScrollEnabled: false})
+            this.isInAnimated = true
+            this._resetFlag()
             this._handleDoubleClick(this.singleClickX,this.singleClickY)
           } else {
-            this.isNeverCountClick = true
-            this.clickCount = 0
-            this.timer && clearTimeout(this.timer)
+            this.isInAnimated = true
+            this._resetFlag()
             this._handleSingleClick(this.singleClickY)
           }
         },200)
@@ -205,11 +206,14 @@ export default class ComicBook extends Component {
       this.isNeverFingerTranslate = true
       this.singleFingerStayCount = 0
       if (this.animatedScale._value > 2) {
-        this._bigSpringBack(2,this._onPanResponderReleaseResetFlag)
+        this._onPanResponderReleaseResetFlag()
+        this._bigSpringBack(2)
       } else if (this.animatedScale._value >= 1 && this.animatedScale._value <= 2) {
-        this._middleSpringBack(null,this._onPanResponderReleaseResetFlag)
+        this._onPanResponderReleaseResetFlag()
+        this._middleSpringBack(null)
       } else if (this.animatedScale._value < 1) {
-        this._smallSpringBack(1,this._onPanResponderReleaseResetFlagSmall)
+        this._onPanResponderReleaseResetFlagSmall()
+        this._smallSpringBack(1)
       }      
     }
   }
@@ -217,11 +221,14 @@ export default class ComicBook extends Component {
   // 單手釋放
   _onPanResponderSingleRelease = () => {
     if (this.animatedScale._value > 2) {
-      this._bigSpringBack(2,this._onPanResponderSingleReleaseResetFlag)
+      this._onPanResponderSingleReleaseResetFlag()
+      this._bigSpringBack(2)
     } else if (this.animatedScale._value > 1 && this.animatedScale._value <= 2) {
-      this._middleSpringBack(null,this._onPanResponderSingleReleaseResetFlag)
+      this._onPanResponderSingleReleaseResetFlag()
+      this._middleSpringBack(null)
     } else if (this.animatedScale._value <= 1) {
-      this._smallSpringBack(1,this._onPanResponderSingleReleaseResetFlagSmall)
+      this._onPanResponderSingleReleaseResetFlagSmall()
+      this._smallSpringBack(1)
     }
   }
 
@@ -243,7 +250,9 @@ export default class ComicBook extends Component {
         toValue: scaleValue,
         duration: 200
       })
-    ]).start(doneCallBack)
+    ]).start(() => {
+      this.isInAnimated = false
+    })
   }
 
   _middleSpringBack = (scaleValue,doneCallBack) => {
@@ -256,15 +265,12 @@ export default class ComicBook extends Component {
         toValue: this._springHideBlackBlock(this.animatedScale._value).offsetY,
         duration: 200
       })
-    ]).start(doneCallBack)
+    ]).start(() => {
+      this.isInAnimated = false
+    })
   }
 
   _smallSpringBack = (scaleValue,doneCallBack) => {
-    // 暫時修復BUG用，滾回原本位置
-    this.flatlist.getNode().scrollToOffset({
-      offset: this.scrollOffset,
-      animated: true,
-    })
     Animated.parallel([
       Animated.timing(this.animatedScale,{
         toValue: scaleValue,
@@ -278,7 +284,14 @@ export default class ComicBook extends Component {
         toValue: 0,
         duration: 200,
       })
-    ]).start(doneCallBack)
+    ]).start(() => {
+      // 暫時修復BUG用，滾回原本位置
+      this.flatlist.getNode().scrollToOffset({
+        offset: this.scrollOffset,
+        animated: true,
+      })
+      this.isInAnimated = false
+    })
   }
   
   _animation = (offsetX,offsetY,scale) => {
@@ -326,6 +339,7 @@ export default class ComicBook extends Component {
     this.isNeverTranslate = true
     this.isNeverSingleRelease = true
     this.lastDistance = null
+    this.isInAnimated = true
   }
 
   _handleSingleClick = (pageY) => {
@@ -352,6 +366,10 @@ export default class ComicBook extends Component {
         animated: true,
       })
     }
+    this.timer && clearTimeout(this.timer)
+    this.clickCount = 0
+    this.isNeverCountClick = true
+    this.isInAnimated = false
   }
 
   _handleDoubleClick = (pageX,pageY) => {
@@ -371,7 +389,10 @@ export default class ComicBook extends Component {
         })
       ]).start(() => {
         this.setState({isScrollEnabled: true})
-        this._resetFlag()
+        this.timer && clearTimeout(this.timer)
+        this.clickCount = 0
+        this.isNeverCountClick = true
+        this.isInAnimated = false
       })
     } else if (this.animatedScale._value === 1) { 
       const focusPointX = (pageX - width/2)
@@ -392,7 +413,10 @@ export default class ComicBook extends Component {
           duration: 200
         })
       ]).start(() => {
-        this._resetFlag()
+        this.timer && clearTimeout(this.timer)
+        this.clickCount = 0
+        this.isNeverCountClick = true
+        this.isInAnimated = false
       })
     }    
   }
