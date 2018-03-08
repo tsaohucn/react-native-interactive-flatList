@@ -13,6 +13,7 @@ import {
   Button,
   InteractionManager
 } from 'react-native'
+import TimerMixin from 'react-timer-mixin'
 
 const { width, height } = Dimensions.get('window')
 
@@ -166,7 +167,7 @@ export default class ComicBook extends Component {
   }
   
   // 全部釋放
-  _onPanResponderRelease =  async (e, gestureState) => {
+  _onPanResponderRelease = (e, gestureState) => {
     if (this.isNeverPanResponderMove || (this.singleFingerStayCount === 1 && this.isNeverFingerTranslate)) {   
       this.isNeverPanResponderMove = true
       this.isNeverFingerTranslate = true
@@ -175,16 +176,21 @@ export default class ComicBook extends Component {
         this.isNeverCountClick = false // 如果是時間區間第一次點擊則屏蔽後面點擊
         this.singleClickX = this.clickX
         this.singleClickY = this.clickY
-        await this._sleep(200)
-        if (this.clickCount > 0) {
-          this.isNeverCountClick = true
-          this.clickCount = 0
-          this._handleDoubleClick(this.singleClickX,this.singleClickY)
-        } else {
-          this.isNeverCountClick = true
-          this.clickCount = 0
-          this._handleSingleClick(this.singleClickY)
-        }
+        this.timer = setTimeout(() => {
+          if (this.clickCount > 0) {
+            this.isNeverCountClick = true
+            this.clickCount = 0
+            this.timer && clearTimeout(this.timer)
+            this._handleDoubleClick(this.singleClickX,this.singleClickY)
+          } else {
+            this.isNeverCountClick = true
+            this.clickCount = 0
+            this.timer && clearTimeout(this.timer)
+            this._handleSingleClick(this.singleClickY)
+          }
+        },200)
+        //await this._sleep(200)
+
       } else {
         const dx = this.clickX - this.singleClickX
         const dy = this.clickY - this.singleClickY
