@@ -83,7 +83,7 @@ export default class ComicBook extends Component {
       onMoveShouldSetPanResponder: evt => !this.isInAnimated, // 開始移動，是否成為響應者
       //onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
       //onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
-      onPanResponderTerminationRequest: evt => true, // 有其他響應者，是否釋放響應權
+      onPanResponderTerminationRequest: evt => false, // 有其他響應者，是否釋放響應權
       onShouldBlockNativeResponder: evt => true // 返回一個布爾值，決定當前組件是否應該阻止原生組件成為JS響應者，默認返回true。目前暫時只支持android
     })
   }
@@ -103,7 +103,8 @@ export default class ComicBook extends Component {
       const dy = Math.abs(e.nativeEvent.touches[0].pageY - e.nativeEvent.touches[1].pageY)
       const distance = Math.sqrt(dx * dx + dy * dy)
       if (!this.lastDistance) {
-        this.setState({isScrollEnabled: false})
+        //this.setState({isScrollEnabled: false})
+        this.flatlist.setNativeProps({scrollEnabled: false})
         this.lastDistance = distance // 第一次lastDistance不存在給予把第一次的distance當作lastDistance
       }
       const scale = (1+(distance - this.lastDistance)/this.lastDistance)*this.animatedScale._value
@@ -180,7 +181,7 @@ export default class ComicBook extends Component {
         this.singleClickY = this.clickY
         this.timer = setTimeout(() => {
           if (this.clickCount > 0) {
-            this.setState({isScrollEnabled: false})
+            //this.setState({isScrollEnabled: false})
             this.isInAnimated = true
             this._resetFlag()
             this._handleDoubleClick(this.singleClickX,this.singleClickY)
@@ -315,7 +316,8 @@ export default class ComicBook extends Component {
   }
 
   _onPanResponderReleaseResetFlagSmall = () => {
-    this.setState({isScrollEnabled: true})
+    //this.setState({isScrollEnabled: true})
+    this.flatlist.setNativeProps({scrollEnabled: true})
     this._onPanResponderReleaseResetFlag()
   }
 
@@ -325,7 +327,8 @@ export default class ComicBook extends Component {
   }
 
   _onPanResponderSingleReleaseResetFlagSmall = () => {
-    this.setState({isScrollEnabled: true})
+    //this.setState({isScrollEnabled: true})
+    this.flatlist.setNativeProps({scrollEnabled: true})
     this._onPanResponderSingleReleaseResetFlag()
   }
 
@@ -388,7 +391,8 @@ export default class ComicBook extends Component {
           duration: 200
         })
       ]).start(() => {
-        this.setState({isScrollEnabled: true})
+        //this.setState({isScrollEnabled: true})
+        this.flatlist.setNativeProps({scrollEnabled: true})
         this.timer && clearTimeout(this.timer)
         this.clickCount = 0
         this.isNeverCountClick = true
