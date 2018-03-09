@@ -150,7 +150,8 @@ export default class ComicBook extends PureComponent {
         //}
       }})(e, {offsetX: offsetX, offsetY: offsetY, scale: scale})    
     } else if (gestureState.numberActiveTouches === 1) {
-      if (gestureState.dx === 0 && gestureState.dy === 0) {
+      if (Math.abs(gestureState.dx) < 10 && Math.abs(gestureState.dy) < 10) {
+        // android 會有微小震動不為零bug
         this.singleFingerStayCount += 1 // 單手停留
       } else {
         this.isNeverFingerTranslate = false // 移動過
@@ -201,7 +202,7 @@ export default class ComicBook extends PureComponent {
   // 全部釋放
   _onPanResponderRelease = (e, gestureState) => {
     // android 有bug 有時候偵測不到放開
-    if (this.isNeverPanResponderMove || (this.singleFingerStayCount === 1 && this.isNeverFingerTranslate)) {   
+    if (this.isNeverPanResponderMove || (this.singleFingerStayCount > 0 && this.singleFingerStayCount <= 2 && this.isNeverFingerTranslate)) {  
       this.isNeverPanResponderMove = true
       this.isNeverFingerTranslate = true
       this.singleFingerStayCount = 0
