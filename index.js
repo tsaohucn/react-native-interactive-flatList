@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React, { Component, PureComponent } from 'react'
 import PropTypes from 'prop-types'
 import {
   View,
@@ -19,7 +19,7 @@ const { width, height } = Dimensions.get('window')
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
 
-export default class ComicBook extends Component {
+export default class ComicBook extends PureComponent {
 
   static propTypes = {
     ...View.propTypes,
@@ -83,12 +83,16 @@ export default class ComicBook extends Component {
       // Setter
       onStartShouldSetPanResponder: evt => !this.isInAnimated, // 開始觸碰，是否成為響應者
       onMoveShouldSetPanResponder: evt => !this.isInAnimated, // 開始移動，是否成為響應者
-      //onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
-      //onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
+      onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
+      onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
       onPanResponderTerminationRequest: evt => false, // 有其他響應者，是否釋放響應權
       onShouldBlockNativeResponder: evt => true // 返回一個布爾值，決定當前組件是否應該阻止原生組件成為JS響應者，默認返回true。目前暫時只支持android
     })
   }
+
+  //shouldComponentUpdate(nextProps, nextState) {
+  //  return false;
+  //}
 
   _handlePanResponderGrant = (e, gestureState) => { 
     if (e.nativeEvent.touches) {
@@ -105,7 +109,7 @@ export default class ComicBook extends Component {
       const dy = Math.abs(e.nativeEvent.touches[0].pageY - e.nativeEvent.touches[1].pageY)
       const distance = Math.sqrt(dx * dx + dy * dy)
       if (!this.lastDistance) {
-        //this.flatlist.setNativeProps({scrollEnabled: false})
+        //
         this.lastDistance = distance // 第一次lastDistance不存在給予把第一次的distance當作lastDistance
       }
       const scale = (1+(distance - this.lastDistance)/this.lastDistance)*this.state.animatedScale._value
@@ -136,12 +140,15 @@ export default class ComicBook extends Component {
         offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/scale) : offsetX
         offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(scale*1.5)) : offsetY
       }
-      //this._animation(offsetX,offsetY,scale,12)
       Animated.event([null,{
           offsetX: this.state.animatedoffsetX,
           offsetY: this.state.animatedoffsetY,
           scale: this.state.animatedScale
-      }])(e, {offsetX: offsetX, offsetY: offsetY, scale: scale})    
+      }],{listener: () => {
+        //if () {
+          this.flatlist.setNativeProps({scrollEnabled: false})
+        //}
+      }})(e, {offsetX: offsetX, offsetY: offsetY, scale: scale})    
     } else if (gestureState.numberActiveTouches === 1) {
       if (gestureState.dx === 0 && gestureState.dy === 0) {
         this.singleFingerStayCount += 1 // 單手停留
@@ -169,10 +176,8 @@ export default class ComicBook extends Component {
         Animated.event([null,{
             offsetX: this.state.animatedoffsetX,
             offsetY: this.state.animatedoffsetY,
-        }])(e, {offsetX: offsetX, offsetY: offsetY})         
-        //this.state.animatedoffsetX.setValue(offsetX)
-        //this.state.animatedoffsetY.setValue(offsetY)        
-      } else if (this.state.animatedScale._value === 1 && Math.abs(gestureState.dy) > 0) {
+        }])(e, {offsetX: offsetX, offsetY: offsetY})                
+      } /*else if (this.state.animatedScale._value === 1 && Math.abs(gestureState.dy) > 0) {
           if (!this.lastScrollY) {
             this.lastScrollY = gestureState.moveY
           }
@@ -187,7 +192,7 @@ export default class ComicBook extends Component {
             animated: false,
           })
           this.lastScrollY = gestureState.moveY     
-      }
+      }*/
       
     }
    
@@ -195,6 +200,7 @@ export default class ComicBook extends Component {
   
   // 全部釋放
   _onPanResponderRelease = (e, gestureState) => {
+    // android 有bug 有時候偵測不到放開
     if (this.isNeverPanResponderMove || (this.singleFingerStayCount === 1 && this.isNeverFingerTranslate)) {   
       this.isNeverPanResponderMove = true
       this.isNeverFingerTranslate = true
@@ -206,7 +212,7 @@ export default class ComicBook extends Component {
         this.singleClickY = this.clickY
         this.timer = setTimeout(() => {
           if (this.clickCount > 0) {
-            //this.flatlist.setNativeProps({scrollEnabled: false})
+            this.flatlist.setNativeProps({scrollEnabled: false})
             this.isInAnimated = true
             this._resetFlag()
             this._handleDoubleClick(this.singleClickX,this.singleClickY)
@@ -222,7 +228,7 @@ export default class ComicBook extends Component {
         const dx = this.clickX - this.singleClickX
         const dy = this.clickY - this.singleClickY
         const distance = Math.sqrt(dx * dx + dy * dy)
-        if (distance < 100) {
+        if (distance < 200) {
           this.clickCount += 1
         }        
       }
@@ -235,10 +241,10 @@ export default class ComicBook extends Component {
       if (this.state.animatedScale._value > 2) {
         this._onPanResponderReleaseResetFlag()
         this._bigSpringBack(2)
-      } else if (this.state.animatedScale._value >= 1 && this.state.animatedScale._value <= 2) {
+      } else if (this.state.animatedScale._value > 1 && this.state.animatedScale._value <= 2) {
         this._onPanResponderReleaseResetFlag()
         this._middleSpringBack(null)
-      } else if (this.state.animatedScale._value < 1) {
+      } else if (this.state.animatedScale._value <= 1) {
         this._onPanResponderReleaseResetFlagSmall()
         this._smallSpringBack(1)
       }      
@@ -260,7 +266,7 @@ export default class ComicBook extends Component {
   }
 
   _handlePanResponderTerminate =  (e, gestureState) => {
-    //console.warn('意外取消')
+    console.warn('意外取消')
   }
 
   _bigSpringBack = (scaleValue,doneCallBack) => {
@@ -312,21 +318,18 @@ export default class ComicBook extends Component {
         duration: 200,
       })
     ]).start(() => {
-      // 暫時修復BUG用，滾回原本位置
-      this.flatlist.getNode().scrollToOffset({
-        offset: this.scrollOffset,
-        animated: true,
-      })
+      if (this.isInAnimated) {
+        this.flatlist.setNativeProps({scrollEnabled: true})
+      }
       this.isInAnimated = false
+      // 暫時修復BUG用，滾回原本位置
+      //this.flatlist.getNode().scrollToOffset({
+      //  offset: this.scrollOffset,
+      //  animated: true,
+      //})
     })
   }
-/*  
-  _animation = (offsetX,offsetY,scale) => {
-    this.state.animatedoffsetX.setValue(offsetX)
-    this.state.animatedoffsetY.setValue(offsetY)
-    this.state.animatedScale.setValue(scale)   
-  }
-*/
+
   _springHideBlackBlock = scale => {
     const offsetBoundaryX = (scale*width/2-width/2)/scale
     const offsetBoundaryY = (scale*height/2-height/2)/scale
@@ -342,7 +345,7 @@ export default class ComicBook extends Component {
   }
 
   _onPanResponderReleaseResetFlagSmall = () => {
-    //this.flatlist.setNativeProps({scrollEnabled: true})
+    this.flatlist.setNativeProps({scrollEnabled: true})
     this._onPanResponderReleaseResetFlag()
   }
 
@@ -352,7 +355,7 @@ export default class ComicBook extends Component {
   }
 
   _onPanResponderSingleReleaseResetFlagSmall = () => {
-    //this.flatlist.setNativeProps({scrollEnabled: true})
+    this.flatlist.setNativeProps({scrollEnabled: true})
     this._onPanResponderSingleReleaseResetFlag()
   }
 
@@ -393,9 +396,11 @@ export default class ComicBook extends Component {
         animated: true,
       })
     }
-    this.timer && clearTimeout(this.timer)
-    this.clickCount = 0
-    this.isNeverCountClick = true
+    if (this.isInAnimated) {
+      this.timer && clearTimeout(this.timer)
+      this.clickCount = 0
+      this.isNeverCountClick = true
+    }
     this.isInAnimated = false
   }
 
@@ -415,10 +420,12 @@ export default class ComicBook extends Component {
           duration: 200
         })
       ]).start(() => {
-        //this.flatlist.setNativeProps({scrollEnabled: true})
-        this.timer && clearTimeout(this.timer)
-        this.clickCount = 0
-        this.isNeverCountClick = true
+        if (this.isInAnimated) {
+          this.flatlist.setNativeProps({scrollEnabled: true})
+          this.timer && clearTimeout(this.timer)
+          this.clickCount = 0
+          this.isNeverCountClick = true
+        }
         this.isInAnimated = false
       })
     } else if (this.state.animatedScale._value === 1) { 
@@ -440,21 +447,21 @@ export default class ComicBook extends Component {
           duration: 200
         })
       ]).start(() => {
-        this.timer && clearTimeout(this.timer)
-        this.clickCount = 0
-        this.isNeverCountClick = true
+        if (this.isInAnimated) {
+          this.timer && clearTimeout(this.timer)
+          this.clickCount = 0
+          this.isNeverCountClick = true
+        }
         this.isInAnimated = false
       })
     }    
   }
 
-  _sleep = ms => {
-    return new Promise(resolve => setTimeout(resolve, ms))
+  _onScroll = ({nativeEvent}) => {
+    this.scrollOffset = nativeEvent.contentOffset.y
   }
 
-  _onScroll = ({nativeEvent}) => {
-    //const {layoutMeasurement, scrollY, contentSize,contentOffset} = nativeEvent
-    this.scrollOffset = nativeEvent.contentOffset.y
+  _onScrollBeginDrag = ({nativeEvent}) => {
     this.contentSize = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height
   }
 
@@ -472,14 +479,19 @@ export default class ComicBook extends Component {
         }]}
         contentContainerStyle={styles.contentContainerStyle}
         ref={ref => this.flatlist = ref}
-        removeClippedSubviews
         onEndReachedThreshold={0.1}
         data={this.props.content}
         numColumns={1}
-        scrollEnabled={this.state.isScrollEnabled}
+        scrollEnabled={true} // this.state.isScrollEnabled
         showsVerticalScrollIndicator={false}
         horizontal={false}
         onScroll={this._onScroll}
+        directionalLockEnabled
+        endFillColor={'red'}
+        onScrollBeginDrag={this._onScrollBeginDrag}
+        onScrollEndDrag={this._onScrollEndDrag}
+        onScroll={this._onScroll}
+        overScrollMode={'never'}
         renderItem={({ item }) =>
           <Image
             resizeMode={'contain'} 
@@ -488,6 +500,7 @@ export default class ComicBook extends Component {
             />
           }
       />
+
     )
   }
 }
