@@ -467,42 +467,83 @@ export default class ComicBook extends PureComponent {
   }
 
   render() {
-    return (
-      <AnimatedFlatList
-        {...this.gestureHandlers.panHandlers}
-        style={[styles.animatedFlatList,{
-          transform: [
-            {scaleX: this.state.animatedScale},
-            {scaleY: this.state.animatedScale},
-            {translateX: this.state.animatedoffsetX},
-            {translateY: this.state.animatedoffsetY}
-          ]
-        }]}
-        contentContainerStyle={styles.contentContainerStyle}
-        ref={ref => this.flatlist = ref}
-        onEndReachedThreshold={0.1}
-        data={this.props.content}
-        numColumns={1}
-        scrollEnabled={true} // this.state.isScrollEnabled
-        showsVerticalScrollIndicator={false}
-        horizontal={false}
-        onScroll={this._onScroll}
-        directionalLockEnabled
-        endFillColor={'red'}
-        onScrollBeginDrag={this._onScrollBeginDrag}
-        onScrollEndDrag={this._onScrollEndDrag}
-        onScroll={this._onScroll}
-        overScrollMode={'never'}
-        renderItem={({ item }) =>
-          <Image
-            resizeMode={'contain'} 
-            style={{width, height: item.height, backgroundColor: 'black'}}
-            source={{uri: item.key}}
-            />
-          }
-      />
-
-    )
+    if (Platform.OS === 'android') {
+      return (
+        <Animated.View
+          {...this.gestureHandlers.panHandlers}
+          style={[styles.animatedFlatList,{
+            transform: [
+              {scaleX: this.state.animatedScale},
+              {scaleY: this.state.animatedScale},
+              {translateX: this.state.animatedoffsetX},
+              {translateY: this.state.animatedoffsetY}
+            ]
+          }]}
+        >
+        <AnimatedFlatList
+          //initialScrollIndex={4}
+          contentContainerStyle={styles.contentContainerStyle}
+          ref={ref => this.flatlist = ref}
+          onEndReachedThreshold={0.1}
+          data={this.props.content}
+          numColumns={1}
+          scrollEnabled={true} // this.state.isScrollEnabled
+          showsVerticalScrollIndicator={false}
+          horizontal={false}
+          onScroll={this._onScroll}
+          directionalLockEnabled
+          endFillColor={'red'}
+          onScrollBeginDrag={this._onScrollBeginDrag}
+          onScrollEndDrag={this._onScrollEndDrag}
+          onScroll={this._onScroll}
+          overScrollMode={'never'}
+          renderItem={({ item }) =>
+            <Image
+              resizeMode={'contain'} 
+              style={{width, height: width, backgroundColor: 'black'}}
+              source={{uri: item.uri}}
+              />
+            }
+        />
+        </Animated.View>
+      )
+    } else {
+      return (
+        <AnimatedFlatList
+          {...this.gestureHandlers.panHandlers}
+          style={[styles.animatedFlatList,{
+            transform: [
+              {scaleX: this.state.animatedScale},
+              {scaleY: this.state.animatedScale},
+              {translateX: this.state.animatedoffsetX},
+              {translateY: this.state.animatedoffsetY}
+            ]
+          }]}
+          contentContainerStyle={styles.contentContainerStyle}
+          ref={ref => this.flatlist = ref}
+          onEndReachedThreshold={0.1}
+          data={this.props.content}
+          numColumns={1}
+          scrollEnabled={true} // this.state.isScrollEnabled
+          showsVerticalScrollIndicator={false}
+          horizontal={false}
+          onScroll={this._onScroll}
+          directionalLockEnabled
+          endFillColor={'red'}
+          onScrollBeginDrag={this._onScrollBeginDrag}
+          onScrollEndDrag={this._onScrollEndDrag}
+          onScroll={this._onScroll}
+          overScrollMode={'never'}
+          renderItem={({ item }) =>
+            <Animated.Image
+              resizeMode={'contain'} 
+              style={{width, height: width, backgroundColor: 'black'}}
+              source={{uri: item.uri}}
+              />
+            }
+        />
+      )
+    }
   }
 }
 
