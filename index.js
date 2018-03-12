@@ -11,7 +11,9 @@ import {
   Image,
   Dimensions,
   Button,
-  InteractionManager
+  InteractionManager,
+  ScrollView,
+  Text
 } from 'react-native'
 import TimerMixin from 'react-timer-mixin'
 import ComicBookImage from './ComicBookImage'
@@ -20,7 +22,7 @@ const { width, height } = Dimensions.get('window')
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
 
-export default class ComicBook extends Component {
+export default class ComicBook extends PureComponent {
 
   static propTypes = {
     ...View.propTypes,
@@ -79,21 +81,23 @@ export default class ComicBook extends Component {
       // Handler
       onPanResponderGrant: this._handlePanResponderGrant,
       onPanResponderMove: this._handlePanResponderMove,
-      onPanResponderRelease: this._onPanResponderRelease,
-      onResponderTerminate : this._handlePanResponderTerminate,
+      onPanResponderRelease: this._handlePanResponderRelease,
+      onPanResponderTerminate : this._handlePanResponderTerminate,
       // Setter
-      onStartShouldSetPanResponder: evt => !this.isInAnimated, // 開始觸碰，是否成為響應者
-      onMoveShouldSetPanResponder: evt => !this.isInAnimated, // 開始移動，是否成為響應者
-      onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
-      onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
-      onPanResponderTerminationRequest: evt => false, // 有其他響應者，是否釋放響應權
-      onShouldBlockNativeResponder: evt => true // 返回一個布爾值，決定當前組件是否應該阻止原生組件成為JS響應者，默認返回true。目前暫時只支持android
+      onStartShouldSetPanResponder: evt => true,//!this.isInAnimated, // 開始觸碰，是否成為響應者
+      onMoveShouldSetPanResponder:  evt => true,//!this.isInAnimated, // 開始移動，是否成為響應者
+      //onStartShouldSetPanResponderCapture: evt => true, // 開始觸碰，是否捕捉成為響應者
+      //onMoveShouldSetPanResponderCapture: evt => true,  // 開始移動，是否捕捉成為響應者
+      //onPanResponderTerminationRequest: evt => false, // 有其他響應者，是否釋放響應權
+      //onShouldBlockNativeResponder: evt => true // 返回一個布爾值，決定當前組件是否應該阻止原生組件成為JS響應者，默認返回true。目前暫時只支持android
     })
   }
 
-  //shouldComponentUpdate(nextProps, nextState) {
-  //  return false;
-  //}
+  _onStartShouldSetPanResponder = e => {
+    if (this.state.animatedScale._value != 1) {
+      return true
+    }
+  }
 
   _handlePanResponderGrant = (e, gestureState) => { 
     if (e.nativeEvent.touches) {
@@ -201,74 +205,79 @@ export default class ComicBook extends Component {
   }
   
   // 全部釋放
-  _onPanResponderRelease = (e, gestureState) => {
+  _handlePanResponderRelease = (e, gestureState) => {
     // android 有bug 有時候偵測不到放開
-    if (this.isNeverPanResponderMove || (this.singleFingerStayCount > 0 && this.singleFingerStayCount <= 2 && this.isNeverFingerTranslate)) {  
-      this.isNeverPanResponderMove = true
-      this.isNeverFingerTranslate = true
-      this.singleFingerStayCount = 0
-      this.lastScrollY = null
-      if (this.isNeverCountClick) {
-        this.isNeverCountClick = false // 如果是時間區間第一次點擊則屏蔽後面點擊
-        this.singleClickX = this.clickX
-        this.singleClickY = this.clickY
-        this.timer = setTimeout(() => {
-          if (this.clickCount > 0) {
-            this.flatlist.setNativeProps({scrollEnabled: false})
-            this.isInAnimated = true
-            this._resetFlag()
-            this._handleDoubleClick(this.singleClickX,this.singleClickY)
-          } else {
-            this.isInAnimated = true
-            this._resetFlag()
-            this._handleSingleClick(this.singleClickY)
-          }
-        },200)
-        //await this._sleep(200)
+    //if (Platform.OS === 'ios') {
+      if (this.isNeverPanResponderMove || (this.singleFingerStayCount > 0 && this.singleFingerStayCount <= 2 && this.isNeverFingerTranslate)) {  
+        this.isNeverPanResponderMove = true
+        this.isNeverFingerTranslate = true
+        this.singleFingerStayCount = 0
+        this.lastScrollY = null
+        if (this.isNeverCountClick) {
+          this.isNeverCountClick = false // 如果是時間區間第一次點擊則屏蔽後面點擊
+          this.singleClickX = this.clickX
+          this.singleClickY = this.clickY
+          this.timer = setTimeout(() => {
+            if (this.clickCount > 0) {
+              this.flatlist.setNativeProps({scrollEnabled: false})
+              this.isInAnimated = true
+              this._resetFlag()
+              this._handleDoubleClick(this.singleClickX,this.singleClickY)
+            } else {
+              this.isInAnimated = true
+              this._resetFlag()
+              this._handleSingleClick(this.singleClickY)
+            }
+          },200)
+          //await this._sleep(200)
 
+        } else {
+          const dx = this.clickX - this.singleClickX
+          const dy = this.clickY - this.singleClickY
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          if (distance < 200) {
+            this.clickCount += 1
+          }        
+        }
       } else {
-        const dx = this.clickX - this.singleClickX
-        const dy = this.clickY - this.singleClickY
-        const distance = Math.sqrt(dx * dx + dy * dy)
-        if (distance < 200) {
-          this.clickCount += 1
-        }        
+        // 滑動 縮放 釋放
+        this.isNeverPanResponderMove = true
+        this.isNeverFingerTranslate = true
+        this.singleFingerStayCount = 0
+        this.lastScrollY = null
+        if (this.state.animatedScale._value > 2) {
+          this._handlePanResponderReleaseResetFlag()
+          this._bigSpringBack(2)
+        } else if (this.state.animatedScale._value > 1 && this.state.animatedScale._value <= 2) {
+          this._handlePanResponderReleaseResetFlag()
+          this._middleSpringBack(null)
+        } else if (this.state.animatedScale._value <= 1) {
+          this._handlePanResponderReleaseResetFlagSmall()
+          this._smallSpringBack(1)
+        }      
       }
-    } else {
-      // 滑動 縮放 釋放
-      this.isNeverPanResponderMove = true
-      this.isNeverFingerTranslate = true
-      this.singleFingerStayCount = 0
-      this.lastScrollY = null
-      if (this.state.animatedScale._value > 2) {
-        this._onPanResponderReleaseResetFlag()
-        this._bigSpringBack(2)
-      } else if (this.state.animatedScale._value > 1 && this.state.animatedScale._value <= 2) {
-        this._onPanResponderReleaseResetFlag()
-        this._middleSpringBack(null)
-      } else if (this.state.animatedScale._value <= 1) {
-        this._onPanResponderReleaseResetFlagSmall()
-        this._smallSpringBack(1)
-      }      
-    }
+    //}
   }
 
   // 單手釋放
   _onPanResponderSingleRelease = () => {
-    if (this.state.animatedScale._value > 2) {
-      this._onPanResponderSingleReleaseResetFlag()
-      this._bigSpringBack(2)
-    } else if (this.state.animatedScale._value > 1 && this.state.animatedScale._value <= 2) {
-      this._onPanResponderSingleReleaseResetFlag()
-      this._middleSpringBack(null)
-    } else if (this.state.animatedScale._value <= 1) {
-      this._onPanResponderSingleReleaseResetFlagSmall()
-      this._smallSpringBack(1)
-    }
+    //if (Platform.OS === 'ios') {
+      if (this.state.animatedScale._value > 2) {
+        this._onPanResponderSingleReleaseResetFlag()
+        this._bigSpringBack(2)
+      } else if (this.state.animatedScale._value > 1 && this.state.animatedScale._value <= 2) {
+        this._onPanResponderSingleReleaseResetFlag()
+        this._middleSpringBack(null)
+      } else if (this.state.animatedScale._value <= 1) {
+        this._onPanResponderSingleReleaseResetFlagSmall()
+        this._smallSpringBack(1)
+      }
+    //}
   }
 
   _handlePanResponderTerminate =  (e, gestureState) => {
-    console.warn('意外取消')
+    //console.warn('_handlePanResponderTerminate')
+    this._handlePanResponderRelease(e, gestureState)
   }
 
   _bigSpringBack = (scaleValue,doneCallBack) => {
@@ -346,12 +355,12 @@ export default class ComicBook extends Component {
     return {offsetX,offsetY}
   }
 
-  _onPanResponderReleaseResetFlagSmall = () => {
+  _handlePanResponderReleaseResetFlagSmall = () => {
     this.flatlist.setNativeProps({scrollEnabled: true})
-    this._onPanResponderReleaseResetFlag()
+    this._handlePanResponderReleaseResetFlag()
   }
 
-  _onPanResponderReleaseResetFlag = () => {
+  _handlePanResponderReleaseResetFlag = () => {
     this.isNeverScaleSmall = true
     this._resetFlag()
   }
@@ -469,44 +478,62 @@ export default class ComicBook extends Component {
 
   render() {
       return (
-        <AnimatedFlatList
-          {...this.gestureHandlers.panHandlers}
-          style={{
-            height,
-            transform: [
-              {scaleX: this.state.animatedScale},
-              {scaleY: this.state.animatedScale},
-              {translateX: this.state.animatedoffsetX},
-              {translateY: this.state.animatedoffsetY}
-            ]
-          }}
-          //initialScrollIndex={4}
-          ref={ref => this.flatlist = ref}
-          onEndReachedThreshold={0.1}
-          data={this.props.content}
-          numColumns={1}
-          scrollEnabled={true} // this.state.isScrollEnabled
-          showsVerticalScrollIndicator={false}
-          horizontal={false}
-          directionalLockEnabled
-          onScrollBeginDrag={this._onScrollBeginDrag}
-          onScrollEndDrag={this._onScrollEndDrag}
-          onScroll={this._onScroll}
-          renderItem={({ item }) =>
-            <ComicBookImage
-              resizeMode={'contain'} 
-              style={{width, height: width, backgroundColor: 'black'}}
-              source={{uri: item.key}}
-              placeholderSource={require('./ComicBook.png')}
-              loadingStyle={ styles.loadingStyle }
-            />
-          }
-        />
+        <View
+          style={styles.comicbook}
+        >
+          <AnimatedFlatList
+            {...this.gestureHandlers.panHandlers}
+            onResponderEnd={(evt) => {
+              if (Platform.OS === 'android') {
+                if (evt.nativeEvent.touches.length === 0) {
+                  // 雙手離開
+                  console.log('雙手離開')
+                } else {
+                  // 單手離開
+                  console.log('單手離開')
+                }
+              }
+            }}
+            style={{
+              transform: [
+                {scaleX: this.state.animatedScale},
+                {scaleY: this.state.animatedScale},
+                {translateX: this.state.animatedoffsetX},
+                {translateY: this.state.animatedoffsetY}
+              ]
+            }}
+            //initialScrollIndex={30}
+            ref={ref => this.flatlist = ref}
+            onEndReachedThreshold={0.1}
+            data={this.props.content}
+            numColumns={1}
+            scrollEnabled={true} // this.state.isScrollEnabled
+            showsVerticalScrollIndicator={false}
+            horizontal={false}
+            directionalLockEnabled
+            onScrollBeginDrag={this._onScrollBeginDrag}
+            onScrollEndDrag={this._onScrollEndDrag}
+            onScroll={this._onScroll}
+            renderItem={({ item }) =>
+              <ComicBookImage
+                resizeMode={'contain'} 
+                style={{width, height: width, backgroundColor: 'black'}}
+                source={{uri: item.uri}}
+                placeholderSource={require('./ComicBook.png')}
+                loadingStyle={ styles.loadingStyle }
+              />
+            }
+          />
+        </View>
       )
   }
 }
 
 const styles = {
+  comicbook: {
+    flex: 1,
+    backgroundColor: 'black'
+  },
   loadingStyle: { 
     size: 'large', 
     color: '#b3b3b3' 
