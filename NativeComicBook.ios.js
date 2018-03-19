@@ -55,6 +55,7 @@ export default class NativeComicBook extends Component {
     this.contentHeight = height
     this.isSingleReleasePan = true
     this.isDoubleReleasePan = true
+    this.isSingleReleasePinch = true
     this.lastTranslationX = null
     this.lastTranslationY = null
     this.lastPointX = null
@@ -146,6 +147,9 @@ export default class NativeComicBook extends Component {
 
   onPinch = event => {
     if (event.nativeEvent.numberOfTouches === 2) {
+      if (this.isSingleReleasePinch) {
+        this.isSingleReleasePinch = false
+      }
       let scale = (event.nativeEvent.scale-1)+this.lastScale
       console.log(event.nativeEvent.scale)
       if (scale > 3) {
@@ -157,6 +161,10 @@ export default class NativeComicBook extends Component {
         [{ scale: this.state.animatedScale}]
       )({scale: scale})
     } else {
+      if (!this.isSingleReleasePinch) {
+        this.isSingleReleasePinch = true
+        this.onPanEnd()
+      }
       // 把ios改成放掉單手重設event.nativeEvent.scale為1
   
     }
