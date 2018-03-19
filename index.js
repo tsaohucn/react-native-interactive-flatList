@@ -1,2 +1,3 @@
 import ComicBook from './ComicBook'
-export default ComicBook
+import NativeComicBook from './NativeComicBook'
+export { NativeComicBook, ComicBook }
