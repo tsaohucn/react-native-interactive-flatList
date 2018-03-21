@@ -1,3 +1,4 @@
 import ComicBook from './ComicBook'
 import NativeComicBook from './NativeComicBook'
-export { NativeComicBook, ComicBook }
+import PinchableBox from './PinchableBox'
+export { NativeComicBook, ComicBook, PinchableBox }

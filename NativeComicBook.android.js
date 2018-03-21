@@ -55,6 +55,7 @@ export default class NativeComicBook extends Component {
     this.contentHeight = height
     this.isSingleReleasePan = true
     this.isDoubleReleasePan = true
+    this.isSingleReleasePinch = true
     this.lastTranslationX = null
     this.lastTranslationY = null
     this.lastPointX = null
@@ -64,6 +65,7 @@ export default class NativeComicBook extends Component {
     this.doubleTapY = null
     this.focusPointX = null
     this.focusPointY = null
+    this.isAnimated = false
   }
 
   onSingleTap = event => {
@@ -149,9 +151,10 @@ export default class NativeComicBook extends Component {
   }
 
   onPinch = event => {
-     if (event.nativeEvent.numberOfTouches === 2) {
-        if (this.do) {
-          this.do = false
+    if (!this.isAnimated) {
+      if (event.nativeEvent.numberOfTouches === 2) {
+        if (this.isSingleReleasePinch) {
+          this.isSingleReleasePinch = false
         }
         //console.log(event.nativeEvent.scale)
         let scale = (event.nativeEvent.scale-1)+this.lastScale
@@ -163,18 +166,20 @@ export default class NativeComicBook extends Component {
         Animated.event(
           [{ scale: this.state.animatedScale}]
         )({scale: scale})
-     } else {
-        if (!this.do) {
-          this.do = true
+      } else {
+        if (!this.isSingleReleasePinch) {
+          this.isSingleReleasePinch = true
           this.onPinchEnd()
         }
-     }
+      }
+    }
   }
 
   onPinchEnd = event => {
     //this.isDoubleReleasePan = true
     //this.isSingleReleasePan = true
     // 兩隻手放開才執行
+    this.isAnimated = true
     if (this.state.animatedScale._value < 1) {
       Animated.parallel([
         Animated.timing(this.state.animatedScale,{
@@ -191,12 +196,19 @@ export default class NativeComicBook extends Component {
         })
       ]).start(result => {
         if (result.finished) {
-          this.lastScale = 1
           this.flatlist.setNativeProps({scrollEnabled: true})
+          this.lastScale = 1
+          this.isAnimated = false
+          console.warn('success')
+        } else {
+          console.warn('fail')
+          this.isAnimated = true
         }
       })
     } else if (this.state.animatedScale._value === 1) {
       this.flatlist.setNativeProps({scrollEnabled: true})
+      this.lastScale = 1
+      this.isAnimated = false
     } else if (this.state.animatedScale._value > 1 && this.state.animatedScale._value <= 2) {
       Animated.parallel([
         Animated.timing(this.state.animatedScale,{
@@ -214,7 +226,7 @@ export default class NativeComicBook extends Component {
       ]).start(result => {
         if (result.finished) {
           this.lastScale = this.state.animatedScale._value
-          //this.flatlist.setNativeProps({scrollEnabled: true})
+          this.isAnimated = false
         }
       })
     } else {
@@ -234,6 +246,7 @@ export default class NativeComicBook extends Component {
       ]).start(result => {
         if (result.finished) {
           this.lastScale = 2
+          this.isAnimated = false
         }
       })      
     }
