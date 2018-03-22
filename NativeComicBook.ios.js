@@ -70,7 +70,7 @@ export default class NativeComicBook extends Component {
       const dx = this.doubleTapX - (event.nativeEvent.absoluteX - width/2)
       const dy = this.doubleTapY - (event.nativeEvent.absoluteY - height/2)
       const distance = Math.sqrt(dx * dx + dy * dy)
-      if (distance < 20) {
+      if (distance < 30) {
         if (this.animatedScale._value ===  1 ) {
           Animated.parallel([
             Animated.timing(this.animatedScale,{
