@@ -1,1 +1,1 @@
-# react-native-comic-book
+# react-native-interactive-flatList
