@@ -8,6 +8,8 @@ import {
   FlatList,
   Image,
   Dimensions,
+  StatusBar,
+  Text
 } from 'react-native'
 import ComicBookImage from './ComicBookImage'
 import {
@@ -17,24 +19,12 @@ import {
   PinchGestureHandler,
   State
 } from 'react-native-gesture-handler'
-//import { USE_NATIVE_DRIVER } from './config';
 
 const { width, height } = Dimensions.get('window')
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
 
-export default class NativeComicBook extends Component {
-
-  static propTypes = {
-    ...View.propTypes,
-    scalable: PropTypes.bool,
-    content: PropTypes.array
-  }
-
-  static defaultProps = {
-    scalable: true,
-    content: new Array
-  }
+export default class InteractiveFlatList extends Component {
 
   constructor(props) {
     super(props)
@@ -58,12 +48,14 @@ export default class NativeComicBook extends Component {
     this.isSetSingleFocus = false
     this.isSetDoubleFocus = false
     this.animatedScale = new Animated.Value(1, { useNativeDriver: true })
-    this.animatedoffsetX = new Animated.Value(0, { useNativeDriver: true })
-    this.animatedoffsetY = new Animated.Value(0, { useNativeDriver: true })
+    this.animatedOffsetX = new Animated.Value(0, { useNativeDriver: true })
+    this.animatedOffsetY = new Animated.Value(0, { useNativeDriver: true })
+    //this.animatedToolBarTopY = new Animated.Value(-50, { useNativeDriver: true })
+    //this.animatedToolBarBottomY = new Animated.Value(50, { useNativeDriver: true })
+
   }
 
   onDoubleTap = event => {
-    console.log(event.nativeEvent)
     if (event.nativeEvent.state === State.BEGAN) {
       this.doubleTapX = (event.nativeEvent.absoluteX - width/2)
       this.doubleTapY = (event.nativeEvent.absoluteY - height/2)
@@ -79,11 +71,11 @@ export default class NativeComicBook extends Component {
               toValue: 2,
               duration: 200
             }),
-            Animated.timing(this.animatedoffsetX,{
+            Animated.timing(this.animatedOffsetX,{
               toValue: -this.doubleTapX/2, // -A/2
               duration: 200
             }),
-            Animated.timing(this.animatedoffsetY,{
+            Animated.timing(this.animatedOffsetY,{
               toValue: -this.doubleTapY/2, // -A/2
               duration: 200
             })
@@ -98,11 +90,11 @@ export default class NativeComicBook extends Component {
               toValue: 1,
               duration: 200
             }),
-            Animated.timing(this.animatedoffsetX,{
+            Animated.timing(this.animatedOffsetX,{
               toValue: 0,
               duration: 200
             }),
-            Animated.timing(this.animatedoffsetY,{
+            Animated.timing(this.animatedOffsetY,{
               toValue: 0,
               duration: 200
             })
@@ -122,20 +114,49 @@ export default class NativeComicBook extends Component {
       this.singleTapY = event.nativeEvent.absoluteY
     }
     if (this.animatedScale._value ===  1 && event.nativeEvent.state === State.ACTIVE) {
+      this.isAnimated = true
       if (this.singleTapY <= height/3) {
         const scrollOffset = this.scrollOffset - height/3 < 0 ? 0 : this.scrollOffset - height/3
         this.flatlist.getNode().scrollToOffset({
           offset: scrollOffset,
           animated: true,
         })
+        this.isAnimated = false
       } else if (this.singleTapY > height/3 && this.singleTapY < height*2/3) {
-        console.warn('功能選單')
+        if (this.animatedToolBarTopY._value === 0 && this.animatedToolBarBottomY._value === 0) {
+           Animated.parallel([
+              Animated.timing(this.animatedToolBarTopY,{
+                toValue: -50,
+                duration: 200,
+              }),
+              Animated.timing(this.animatedToolBarBottomY,{
+                toValue: 50,
+                duration: 200,
+              })
+            ]).start(result => {
+              this.isAnimated = false
+            })
+        } else {
+           Animated.parallel([
+              Animated.timing(this.animatedToolBarTopY,{
+                toValue: 0,
+                duration: 200,
+              }),
+              Animated.timing(this.animatedToolBarBottomY,{
+                toValue: 0,
+                duration: 200,
+              })
+            ]).start(result => {
+              this.isAnimated = false
+            })          
+        }
       } else {
         const scrollOffset = this.scrollOffset + height/3 > this.contentHeight ? this.contentHeight :this.scrollOffset + height/3
         this.flatlist.getNode().scrollToOffset({
           offset: scrollOffset,
           animated: true,
         })
+        this.isAnimated = false
       }    
     }
   }
@@ -146,8 +167,6 @@ export default class NativeComicBook extends Component {
 
   onPan = event => {
     if (event.nativeEvent.numberOfTouches === 2) {
-          console.log(event.nativeEvent)
-
       // 雙指平移
       if (this.isSingleReleasePan || this.isDoubleReleasePan) {
         this.isSingleReleasePan = false
@@ -156,8 +175,8 @@ export default class NativeComicBook extends Component {
         
         if (this.isAnimated) {          
           this.animatedScale.stopAnimation(scaleValue => { 
-            this.animatedoffsetX.stopAnimation(xValue => {
-              this.animatedoffsetY.stopAnimation(yValue => {
+            this.animatedOffsetX.stopAnimation(xValue => {
+              this.animatedOffsetY.stopAnimation(yValue => {
                 this.lastScale = scaleValue
                 this.isAnimated = false
               })
@@ -168,23 +187,22 @@ export default class NativeComicBook extends Component {
       if (!this.isAnimated) {
         if (!this.isSetDoubleFocus) {
           this.isSetDoubleFocus = true
-          this.focusPointX = (event.nativeEvent.absoluteX - width/2)/this.animatedScale._value - this.animatedoffsetX._value
-          this.focusPointY = (event.nativeEvent.absoluteY - height/2)/this.animatedScale._value - this.animatedoffsetY._value
+          this.focusPointX = (event.nativeEvent.absoluteX - width/2)/this.animatedScale._value - this.animatedOffsetX._value
+          this.focusPointY = (event.nativeEvent.absoluteY - height/2)/this.animatedScale._value - this.animatedOffsetY._value
         }
         const magnifierCenterX = event.nativeEvent.absoluteX - width/2 // 目前雙手中心
         const magnifierCenterY = event.nativeEvent.absoluteY - height/2 // 目前雙手中心
         const offsetX = magnifierCenterX/this.animatedScale._value-this.focusPointX // 關注點到雙手中心需要的偏移量
         const offsetY = magnifierCenterY/this.animatedScale._value-this.focusPointY // 關注點到雙手中心需要的偏移量
-        //this.animatedoffsetX.setValue(offsetX)
-        //this.animatedoffsetY.setValue(offsetY)
+        //this.animatedOffsetX.setValue(offsetX)
+        //this.animatedOffsetY.setValue(offsetY)
         Animated.event(
-          [{ offsetX: this.animatedoffsetX,
-             offsetY: this.animatedoffsetY
+          [{ offsetX: this.animatedOffsetX,
+             offsetY: this.animatedOffsetY
           }]
         )({offsetX: offsetX,offsetY: offsetY})
       }
     } else {
-      
       if (!(!this.isDoubleReleasePan && this.isSingleReleasePan)) {
         if (!this.isDoubleReleasePan && !this.isSingleReleasePan && !this.isAnimated) {
           this.backAnimated()
@@ -197,11 +215,10 @@ export default class NativeComicBook extends Component {
       if (!this.isAnimated) {
         if (!this.isSetSingleFocus) {
           this.isSetSingleFocus = true
-          this.lastTranslationX = this.animatedoffsetX._value
-          this.lastTranslationY = this.animatedoffsetY._value
+          this.lastTranslationX = this.animatedOffsetX._value
+          this.lastTranslationY = this.animatedOffsetY._value
           this.lastPointX = event.nativeEvent.absoluteX
           this.lastPointY = event.nativeEvent.absoluteY
-          //console.warn(event.nativeEvent.absoluteX)
         }
         if (this.animatedScale._value > 1) {
           // 單指平移
@@ -213,11 +230,11 @@ export default class NativeComicBook extends Component {
           const offsetBoundaryY = (this.animatedScale._value*height/2-height/4)/this.animatedScale._value
           offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/(this.animatedScale._value*5)) : offsetX
           offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(this.animatedScale._value*1.5)) : offsetY
-          //this.animatedoffsetX.setValue(offsetX)
-          //this.animatedoffsetY.setValue(offsetY)
+          //this.animatedOffsetX.setValue(offsetX)
+          //this.animatedOffsetY.setValue(offsetY)
           Animated.event(
-            [{ offsetX: this.animatedoffsetX,
-               offsetY: this.animatedoffsetY
+            [{ offsetX: this.animatedOffsetX,
+               offsetY: this.animatedOffsetY
             }]
           )({offsetX: offsetX,offsetY: offsetY})
         }
@@ -259,11 +276,11 @@ export default class NativeComicBook extends Component {
           toValue: 1,
           duration: 200,
         }),
-        Animated.timing(this.animatedoffsetX,{
+        Animated.timing(this.animatedOffsetX,{
           toValue: 0,
           duration: 200,
         }),
-        Animated.timing(this.animatedoffsetY,{
+        Animated.timing(this.animatedOffsetY,{
           toValue: 0,
           duration: 200,
         })
@@ -276,11 +293,11 @@ export default class NativeComicBook extends Component {
       })
     } else if (this.animatedScale._value == 1) {
       Animated.parallel([
-        Animated.timing(this.animatedoffsetX,{
+        Animated.timing(this.animatedOffsetX,{
           toValue: 0,
           duration: 200,
         }),
-        Animated.timing(this.animatedoffsetY,{
+        Animated.timing(this.animatedOffsetY,{
           toValue: 0,
           duration: 200,
         })
@@ -297,11 +314,11 @@ export default class NativeComicBook extends Component {
           toValue: this.animatedScale._value,
           duration: 200,
         }),
-        Animated.timing(this.animatedoffsetX,{
+        Animated.timing(this.animatedOffsetX,{
           toValue: this.springHideBlackBlock(this.animatedScale._value).offsetX,
           duration: 200,
         }),
-        Animated.timing(this.animatedoffsetY,{
+        Animated.timing(this.animatedOffsetY,{
           toValue: this.springHideBlackBlock(this.animatedScale._value).offsetY,
           duration: 200,
         })
@@ -317,11 +334,11 @@ export default class NativeComicBook extends Component {
           toValue: 2,
           duration: 200,
         }),
-        Animated.timing(this.animatedoffsetX,{
+        Animated.timing(this.animatedOffsetX,{
           toValue: this.springHideBlackBlock(2).offsetX,
           duration: 200,
         }),
-        Animated.timing(this.animatedoffsetY,{
+        Animated.timing(this.animatedOffsetY,{
           toValue: this.springHideBlackBlock(2).offsetY,
           duration: 200,
         })
@@ -337,13 +354,13 @@ export default class NativeComicBook extends Component {
   springHideBlackBlock = scale => {
     const offsetBoundaryX = (scale*width/2-width/2)/scale
     const offsetBoundaryY = (scale*height/2-height/2)/scale
-    let offsetX = this.animatedoffsetX._value
-    let offsetY = this.animatedoffsetY._value
-    if (Math.abs(this.animatedoffsetX._value) > offsetBoundaryX) {
-      offsetX = offsetBoundaryX*Math.sign(this.animatedoffsetX._value)
+    let offsetX = this.animatedOffsetX._value
+    let offsetY = this.animatedOffsetY._value
+    if (Math.abs(this.animatedOffsetX._value) > offsetBoundaryX) {
+      offsetX = offsetBoundaryX*Math.sign(this.animatedOffsetX._value)
     }
-    if (Math.abs(this.animatedoffsetY._value) > offsetBoundaryY) {
-      offsetY = offsetBoundaryY*Math.sign(this.animatedoffsetY._value)
+    if (Math.abs(this.animatedOffsetY._value) > offsetBoundaryY) {
+      offsetY = offsetBoundaryY*Math.sign(this.animatedOffsetY._value)
     }
     return {offsetX,offsetY}
   }
@@ -353,92 +370,125 @@ export default class NativeComicBook extends Component {
     this.contentHeight = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height
   }
 
+  renderTopToolBarLeftComponent = () => <View></View>
+
+  renderTopToolBarRightComponent = () => <View></View>
+
   render() {
     return (
       <View style={styles.comicbook}>
         <TapGestureHandler
           onHandlerStateChange={this.onSingleTap}
-          waitFor={["double_tap","flatlist_pinch","flatlist_pan","flatlist"]}
+          waitFor={["double_tap","flatlist_pinch","flatlist_pan"]}
           maxDurationMs={200}
         >
           <TapGestureHandler
             id="double_tap"
+            //waitFor={["flatlist_pinch","flatlist_pan"]}
             onHandlerStateChange={this.onDoubleTap}
             numberOfTaps={2}
           >
             <PanGestureHandler
               id="flatlist_pan"
-              simultaneousHandlers={"flatlist_pinch"}
+              simultaneousHandlers="flatlist_pinch"
               waitFor="flatlist"
               onActivated={this.onPanStart}
               onGestureEvent={this.onPan}
               onEnded={this.onPanEnd}
-              minPointers={1}
+              minPointers={2}
               maxPointers={2}
               avgTouches
             >
               <PinchGestureHandler
                 id="flatlist_pinch"
-                simultaneousHandlers={"flatlist_pan"}
+                simultaneousHandlers="flatlist_pan"
                 onGestureEvent={this.onPinch}
+                enabled={true}
               >
                 <NativeViewGestureHandler
                   id="flatlist"
                 >
-                <AnimatedFlatList
-                  ref={ref => this.flatlist = ref}
-                  style={[styles.animatedFlatList,{
-                    transform: [
-                      {scale: this.animatedScale},
-                      {translateX: this.animatedoffsetX},
-                      {translateY: this.animatedoffsetY}
-                    ]
-                  }]}
-                  scrollEventThrottle={16}
-                  showsVerticalScrollIndicator={false}
-                  scrollEnabled={true}
-                  onScroll={this.onScroll}
-                  data={this.props.content}
-                  overScrollMode={'never'}
-                  renderItem={({ item }) =>
-                    <ComicBookImage
-                      resizeMode={'contain'} 
-                      style={{width, height: width, backgroundColor: 'black'}}
-                      source={{uri: item.uri}}
-                      />
-                    }
-                />
+                  <AnimatedFlatList
+                    ref={ref => this.flatlist = ref}
+                    style={{
+                      transform: [
+                        {scale: this.animatedScale},
+                        {translateX: this.animatedOffsetX},
+                        {translateY: this.animatedOffsetY}
+                      ]
+                    }}
+                    scrollEventThrottle={16}
+                    showsVerticalScrollIndicator={false}
+                    scrollEnabled={true}
+                    onScroll={this.onScroll}
+                    data={this.props.content}
+                    overScrollMode={'never'}
+                    renderItem={}
+                  />
+
                 </NativeViewGestureHandler>
               </PinchGestureHandler>
             </PanGestureHandler>
           </TapGestureHandler>
         </TapGestureHandler>
-      </View>
+        <StatusBar hidden />
+        <Animated.View style={[styles.topTool,{
+          transform: [
+            {translateY: this.animatedToolBarTopY}
+          ]
+        }]}>
+          { this.props.renderTopToolBarLeftComponent ? this.props.renderTopToolBarLeftComponent() : this.renderTopToolBarLeftComponent()}
+          <Text 
+            style={styles.text}>
+            { this.props.title }
+          </Text>
+          { this.props.renderTopToolBarRightComponent ? this.props.renderTopToolBarRightComponent() : this.renderTopToolBarRightComponent()}
+        </Animated.View>
+        <Animated.View style={[styles.bottomTool,{
+          transform: [
+            {translateY: this.animatedToolBarBottomY}
+          ]
+        }]}>
+        </Animated.View>
+    </View>
     )
   }
 }
 
+InteractiveFlatList.propTypes = {
+  content: PropTypes.array,
+  title: PropTypes.string,
+  renderTopToolBarLeftComponent: PropTypes.func,
+  renderTopToolBarRightComponent: PropTypes.func
+};
+
 const styles = {
   comicbook: {
     flex: 1,
-    backgroundColor: 'black'
+    backgroundColor: '#000000'
   },
-  loadingStyle: { 
-    size: 'large', 
-    color: '#b3b3b3' 
+  topTool: {
+    position: 'absolute', 
+    top: 0,
+    height: 50,
+    width,
+    backgroundColor: 'rgba(52, 52, 52, 0.8)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
-  dimensions: {
-    width, 
-    height: width
+  bottomTool: {
+    position: 'absolute', 
+    height: 50,
+    width,
+    backgroundColor: 'rgba(52, 52, 52, 0.8)',
+    bottom: 0    
+  },
+  icon: {
+    width: 30, 
+    height: 30
+  },
+  text: {
+    color: 'white'
   }
 }
-
-/*
-      //if (this.animatedScale._value >= 1) { 
-        // 限制放大超過邊界時的偏移速度
-        //const offsetBoundaryX = (this.animatedScale._value*width/2-width*3/8)/this.animatedScale._value
-        //const offsetBoundaryY = (this.animatedScale._value*height/2-height/4)/this.animatedScale._value
-        //offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/(this.animatedScale._value*5)) : offsetX
-        //offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(this.animatedScale._value*1.5)) : offsetY
-      //}
-    */

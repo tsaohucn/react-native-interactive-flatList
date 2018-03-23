@@ -1,25 +1,28 @@
 {
-  "name": "react-native-comic-book",
+  "name": "react-native-interactive-flatList",
   "version": "1.0.0",
-  "description": "react native comic book",
+  "description": "react native interactive flatList",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "http://git.av-bobo.com/xc/react-native-comic-book.git"
+    "url": "http://git.av-bobo.com/xc/react-native-interactive-flatList.git"
   },
   "dependencies": {
-    "prop-types": "^15.5.10"
+    "react": "^16.3.0-alpha.1",
+    "react-native": "^0.54.0",
+    "prop-types": "^15.5.10",
+    "react-native-gesture-handler": "git@github.com:tsaohucn/react-native-gesture-handler.git"
   },
   "keywords": [
-    "react native comic book"
+    "react native interactive flatList"
   ],
   "author": "Tsao",
   "license": "ISC",
   "bugs": {
-    "url": "http://git.av-bobo.com/xc/react-native-comic-book/issues"
+    "url": "http://git.av-bobo.com/xc/react-native-interactive-flatList/issues"
   },
-  "homepage": "http://git.av-bobo.com/xc/react-native-comic-book#readme"
+  "homepage": "http://git.av-bobo.com/xc/react-native-interactive-flatList#readme"
 }
