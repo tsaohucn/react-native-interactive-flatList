@@ -1,17 +1,14 @@
-import React, { Component, PureComponent } from 'react'
+import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import {
   View,
   StyleSheet,
   Animated,
-  Easing,
   FlatList,
-  Image,
   Dimensions,
   StatusBar,
-  Text
+  Platform
 } from 'react-native'
-import ComicBookImage from './ComicBookImage'
 import {
   NativeViewGestureHandler,
   PanGestureHandler,
@@ -19,19 +16,15 @@ import {
   PinchGestureHandler,
   State
 } from 'react-native-gesture-handler'
-
-const { width, height } = Dimensions.get('window')
-
-const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
+import { getBoundaryOffset, parallelWithoutScaleAnimated, parallelAnimated } from './Utils'
 
 export default class InteractiveFlatList extends Component {
 
   constructor(props) {
     super(props)
+    this.AnimatedFlatList = null
     this.lastScale = 1
     this.focusPointX = 0
-    this.scrollOffset = 0
-    this.contentHeight = height
     this.isSingleReleasePan = true
     this.isDoubleReleasePan = true
     this.isSingleReleasePinch = true
@@ -50,9 +43,9 @@ export default class InteractiveFlatList extends Component {
     this.animatedScale = new Animated.Value(1, { useNativeDriver: true })
     this.animatedOffsetX = new Animated.Value(0, { useNativeDriver: true })
     this.animatedOffsetY = new Animated.Value(0, { useNativeDriver: true })
-    //this.animatedToolBarTopY = new Animated.Value(-50, { useNativeDriver: true })
-    //this.animatedToolBarBottomY = new Animated.Value(50, { useNativeDriver: true })
-
+    this.getBoundaryOffset = getBoundaryOffset.bind(this)
+    this.parallelAnimated = parallelAnimated.bind(this)
+    this.parallelWithoutScaleAnimated = parallelWithoutScaleAnimated.bind(this)
   }
 
   onDoubleTap = event => {
@@ -65,44 +58,32 @@ export default class InteractiveFlatList extends Component {
       const dy = this.doubleTapY - (event.nativeEvent.absoluteY - height/2)
       const distance = Math.sqrt(dx * dx + dy * dy)
       if (distance < 30) {
+        this.isAnimated = true
         if (this.animatedScale._value ===  1 ) {
-          Animated.parallel([
-            Animated.timing(this.animatedScale,{
-              toValue: 2,
-              duration: 200
-            }),
-            Animated.timing(this.animatedOffsetX,{
-              toValue: -this.doubleTapX/2, // -A/2
-              duration: 200
-            }),
-            Animated.timing(this.animatedOffsetY,{
-              toValue: -this.doubleTapY/2, // -A/2
-              duration: 200
-            })
-          ]).start(result => {
+          const done = result => {
             if (result.finished) {
               this.lastScale = 2
-            }          
+              this.isAnimated = false
+            }        
+          }
+          this.parallelAnimated({
+            scale: 2,
+            offsetX: -this.doubleTapX/2,
+            offsetY: -this.doubleTapY/2,
+            done: done
           })
         } else if (this.animatedScale._value > 1 ) {
-          Animated.parallel([
-            Animated.timing(this.animatedScale,{
-              toValue: 1,
-              duration: 200
-            }),
-            Animated.timing(this.animatedOffsetX,{
-              toValue: 0,
-              duration: 200
-            }),
-            Animated.timing(this.animatedOffsetY,{
-              toValue: 0,
-              duration: 200
-            })
-          ]).start(result => {
+          const done = result => {
             if (result.finished) {
               this.lastScale = 1
-              //this.flatlist.setNativeProps({scrollEnabled: true})
-            }            
+              this.isAnimated = false
+            }        
+          }
+          this.parallelAnimated({
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            done: done
           })
         }
       }
@@ -114,55 +95,14 @@ export default class InteractiveFlatList extends Component {
       this.singleTapY = event.nativeEvent.absoluteY
     }
     if (this.animatedScale._value ===  1 && event.nativeEvent.state === State.ACTIVE) {
-      this.isAnimated = true
       if (this.singleTapY <= height/3) {
-        const scrollOffset = this.scrollOffset - height/3 < 0 ? 0 : this.scrollOffset - height/3
-        this.flatlist.getNode().scrollToOffset({
-          offset: scrollOffset,
-          animated: true,
-        })
-        this.isAnimated = false
+        this.props.onSingleClickTopArea && this.props.onSingleClickTopArea()
       } else if (this.singleTapY > height/3 && this.singleTapY < height*2/3) {
-        if (this.animatedToolBarTopY._value === 0 && this.animatedToolBarBottomY._value === 0) {
-           Animated.parallel([
-              Animated.timing(this.animatedToolBarTopY,{
-                toValue: -50,
-                duration: 200,
-              }),
-              Animated.timing(this.animatedToolBarBottomY,{
-                toValue: 50,
-                duration: 200,
-              })
-            ]).start(result => {
-              this.isAnimated = false
-            })
-        } else {
-           Animated.parallel([
-              Animated.timing(this.animatedToolBarTopY,{
-                toValue: 0,
-                duration: 200,
-              }),
-              Animated.timing(this.animatedToolBarBottomY,{
-                toValue: 0,
-                duration: 200,
-              })
-            ]).start(result => {
-              this.isAnimated = false
-            })          
-        }
+        this.props.onSingleClickMiddleArea && this.props.onSingleClickMiddleArea()
       } else {
-        const scrollOffset = this.scrollOffset + height/3 > this.contentHeight ? this.contentHeight :this.scrollOffset + height/3
-        this.flatlist.getNode().scrollToOffset({
-          offset: scrollOffset,
-          animated: true,
-        })
-        this.isAnimated = false
+        this.props.onSingleClickBottomArea && this.props.onSingleClickBottomArea()
       }    
     }
-  }
-
-  onPanStart = event => {
-    //this.flatlist.setNativeProps({scrollEnabled: false})
   }
 
   onPan = event => {
@@ -194,8 +134,6 @@ export default class InteractiveFlatList extends Component {
         const magnifierCenterY = event.nativeEvent.absoluteY - height/2 // 目前雙手中心
         const offsetX = magnifierCenterX/this.animatedScale._value-this.focusPointX // 關注點到雙手中心需要的偏移量
         const offsetY = magnifierCenterY/this.animatedScale._value-this.focusPointY // 關注點到雙手中心需要的偏移量
-        //this.animatedOffsetX.setValue(offsetX)
-        //this.animatedOffsetY.setValue(offsetY)
         Animated.event(
           [{ offsetX: this.animatedOffsetX,
              offsetY: this.animatedOffsetY
@@ -205,7 +143,7 @@ export default class InteractiveFlatList extends Component {
     } else {
       if (!(!this.isDoubleReleasePan && this.isSingleReleasePan)) {
         if (!this.isDoubleReleasePan && !this.isSingleReleasePan && !this.isAnimated) {
-          this.backAnimated()
+          this.releaseAnimated()
         }
         this.isDoubleReleasePan = false
         this.isSingleReleasePan = true
@@ -230,8 +168,6 @@ export default class InteractiveFlatList extends Component {
           const offsetBoundaryY = (this.animatedScale._value*height/2-height/4)/this.animatedScale._value
           offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/(this.animatedScale._value*5)) : offsetX
           offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(this.animatedScale._value*1.5)) : offsetY
-          //this.animatedOffsetX.setValue(offsetX)
-          //this.animatedOffsetY.setValue(offsetY)
           Animated.event(
             [{ offsetX: this.animatedOffsetX,
                offsetY: this.animatedOffsetY
@@ -248,7 +184,7 @@ export default class InteractiveFlatList extends Component {
     this.isSetSingleFocus = false
     this.isSetDoubleFocus = false
     if (!this.isAnimated) {
-      this.backAnimated()
+      this.releaseAnimated()
     }
   }
 
@@ -261,118 +197,71 @@ export default class InteractiveFlatList extends Component {
         } else if (scale < 0.5) {
           scale = 0.5
         }
-        //this.animatedScale.setValue(scale)
         Animated.event([{ scale: this.animatedScale}])({scale: scale})
       }
     }
   }
 
-
-  backAnimated = () => {
+  releaseAnimated = () => {
     this.isAnimated = true
     if (this.animatedScale._value < 1) {
-      Animated.parallel([
-        Animated.timing(this.animatedScale,{
-          toValue: 1,
-          duration: 200,
-        }),
-        Animated.timing(this.animatedOffsetX,{
-          toValue: 0,
-          duration: 200,
-        }),
-        Animated.timing(this.animatedOffsetY,{
-          toValue: 0,
-          duration: 200,
-        })
-      ]).start(result => {
+      const done = result => {
         if (result.finished) {
-          //this.flatlist.setNativeProps({scrollEnabled: true})
           this.lastScale = 1
           this.isAnimated = false
-        }
+        }        
+      }
+      this.parallelAnimated({
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        done: done
       })
     } else if (this.animatedScale._value == 1) {
-      Animated.parallel([
-        Animated.timing(this.animatedOffsetX,{
-          toValue: 0,
-          duration: 200,
-        }),
-        Animated.timing(this.animatedOffsetY,{
-          toValue: 0,
-          duration: 200,
-        })
-      ]).start(result => {
+      const done = result => {
         if (result.finished) {
-          //this.flatlist.setNativeProps({scrollEnabled: true})
           this.lastScale = 1
           this.isAnimated = false
-        }       
+        }        
+      }
+      this.parallelWithoutScaleAnimated({
+        offsetX: 0,
+        offsetY: 0,
+        done: done     
       })
     } else if (this.animatedScale._value > 1 && this.animatedScale._value <= 2) {
-      Animated.parallel([
-        Animated.timing(this.animatedScale,{
-          toValue: this.animatedScale._value,
-          duration: 200,
-        }),
-        Animated.timing(this.animatedOffsetX,{
-          toValue: this.springHideBlackBlock(this.animatedScale._value).offsetX,
-          duration: 200,
-        }),
-        Animated.timing(this.animatedOffsetY,{
-          toValue: this.springHideBlackBlock(this.animatedScale._value).offsetY,
-          duration: 200,
-        })
-      ]).start(result => {
+      const done = result => {
         if (result.finished) {
           this.lastScale = this.animatedScale._value
           this.isAnimated = false
-        }
+        }        
+      }
+      const { offsetX, offsetY } = this.getBoundaryOffset(this.animatedScale._value)
+      this.parallelWithoutScaleAnimated({
+        offsetX: offsetX,
+        offsetY: offsetY,
+        done: done     
       })
     } else {
-      Animated.parallel([
-        Animated.timing(this.animatedScale,{
-          toValue: 2,
-          duration: 200,
-        }),
-        Animated.timing(this.animatedOffsetX,{
-          toValue: this.springHideBlackBlock(2).offsetX,
-          duration: 200,
-        }),
-        Animated.timing(this.animatedOffsetY,{
-          toValue: this.springHideBlackBlock(2).offsetY,
-          duration: 200,
-        })
-      ]).start(result => {
+      const done = result => {
         if (result.finished) {
           this.lastScale = 2
           this.isAnimated = false
-        }
-      })      
+        }        
+      }
+      const { offsetX, offsetY } = this.getBoundaryOffset(2)
+      this.parallelAnimated({
+        scale: 2,
+        offsetX: offsetX,
+        offsetY: offsetY,
+        done: done
+      })     
     }    
   }
 
-  springHideBlackBlock = scale => {
-    const offsetBoundaryX = (scale*width/2-width/2)/scale
-    const offsetBoundaryY = (scale*height/2-height/2)/scale
-    let offsetX = this.animatedOffsetX._value
-    let offsetY = this.animatedOffsetY._value
-    if (Math.abs(this.animatedOffsetX._value) > offsetBoundaryX) {
-      offsetX = offsetBoundaryX*Math.sign(this.animatedOffsetX._value)
-    }
-    if (Math.abs(this.animatedOffsetY._value) > offsetBoundaryY) {
-      offsetY = offsetBoundaryY*Math.sign(this.animatedOffsetY._value)
-    }
-    return {offsetX,offsetY}
+  getFlatList = () => {
+    return(this.AnimatedFlatList.getNode())
   }
-
-  onScroll = ({nativeEvent}) => {
-    this.scrollOffset = nativeEvent.contentOffset.y
-    this.contentHeight = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height
-  }
-
-  renderTopToolBarLeftComponent = () => <View></View>
-
-  renderTopToolBarRightComponent = () => <View></View>
 
   render() {
     return (
@@ -380,11 +269,12 @@ export default class InteractiveFlatList extends Component {
         <TapGestureHandler
           onHandlerStateChange={this.onSingleTap}
           waitFor={["double_tap","flatlist_pinch","flatlist_pan"]}
+          numberOfTaps={1}
           maxDurationMs={200}
         >
           <TapGestureHandler
             id="double_tap"
-            //waitFor={["flatlist_pinch","flatlist_pan"]}
+            waitFor={Platform.OS === 'ios' ? ["flatlist_pinch","flatlist_pan"] : []}
             onHandlerStateChange={this.onDoubleTap}
             numberOfTaps={2}
           >
@@ -392,7 +282,6 @@ export default class InteractiveFlatList extends Component {
               id="flatlist_pan"
               simultaneousHandlers="flatlist_pinch"
               waitFor="flatlist"
-              onActivated={this.onPanStart}
               onGestureEvent={this.onPan}
               onEnded={this.onPanEnd}
               minPointers={2}
@@ -409,7 +298,8 @@ export default class InteractiveFlatList extends Component {
                   id="flatlist"
                 >
                   <AnimatedFlatList
-                    ref={ref => this.flatlist = ref}
+                    {...this.props}
+                    ref={ref => this.AnimatedFlatList = ref}
                     style={{
                       transform: [
                         {scale: this.animatedScale},
@@ -419,76 +309,38 @@ export default class InteractiveFlatList extends Component {
                     }}
                     scrollEventThrottle={16}
                     showsVerticalScrollIndicator={false}
-                    scrollEnabled={true}
-                    onScroll={this.onScroll}
-                    data={this.props.content}
-                    overScrollMode={'never'}
-                    renderItem={}
+                    horizontal={false}
                   />
-
                 </NativeViewGestureHandler>
               </PinchGestureHandler>
             </PanGestureHandler>
           </TapGestureHandler>
         </TapGestureHandler>
         <StatusBar hidden />
-        <Animated.View style={[styles.topTool,{
-          transform: [
-            {translateY: this.animatedToolBarTopY}
-          ]
-        }]}>
-          { this.props.renderTopToolBarLeftComponent ? this.props.renderTopToolBarLeftComponent() : this.renderTopToolBarLeftComponent()}
-          <Text 
-            style={styles.text}>
-            { this.props.title }
-          </Text>
-          { this.props.renderTopToolBarRightComponent ? this.props.renderTopToolBarRightComponent() : this.renderTopToolBarRightComponent()}
-        </Animated.View>
-        <Animated.View style={[styles.bottomTool,{
-          transform: [
-            {translateY: this.animatedToolBarBottomY}
-          ]
-        }]}>
-        </Animated.View>
     </View>
     )
   }
 }
 
 InteractiveFlatList.propTypes = {
-  content: PropTypes.array,
-  title: PropTypes.string,
-  renderTopToolBarLeftComponent: PropTypes.func,
-  renderTopToolBarRightComponent: PropTypes.func
-};
+  data: PropTypes.array,
+  renderItem: PropTypes.func.isRequired,
+  onSingleClickTopArea: PropTypes.func,
+  onSingleClickMiddleArea: PropTypes.func,
+  onSingleClickBottomArea: PropTypes.func
+}
 
-const styles = {
+InteractiveFlatList.defaultProps = {
+  data: []
+}
+
+const { width, height } = Dimensions.get('window')
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList)
+
+const styles = StyleSheet.create({
   comicbook: {
     flex: 1,
     backgroundColor: '#000000'
-  },
-  topTool: {
-    position: 'absolute', 
-    top: 0,
-    height: 50,
-    width,
-    backgroundColor: 'rgba(52, 52, 52, 0.8)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  bottomTool: {
-    position: 'absolute', 
-    height: 50,
-    width,
-    backgroundColor: 'rgba(52, 52, 52, 0.8)',
-    bottom: 0    
-  },
-  icon: {
-    width: 30, 
-    height: 30
-  },
-  text: {
-    color: 'white'
   }
-}
+})
