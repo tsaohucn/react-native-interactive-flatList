@@ -48,6 +48,10 @@ export default class InteractiveFlatList extends Component {
     this.parallelWithoutScaleAnimated = parallelWithoutScaleAnimated.bind(this)
   }
 
+  componentWillMount() {
+    StatusBar.setHidden(true)
+  }
+
   onDoubleTap = event => {
     if (event.nativeEvent.state === State.BEGAN) {
       this.doubleTapX = (event.nativeEvent.absoluteX - width/2)
@@ -316,7 +320,6 @@ export default class InteractiveFlatList extends Component {
             </PanGestureHandler>
           </TapGestureHandler>
         </TapGestureHandler>
-        <StatusBar hidden />
     </View>
     )
   }
