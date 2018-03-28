@@ -272,20 +272,18 @@ export default class InteractiveFlatList extends Component {
       <View style={styles.comicbook}>
         <TapGestureHandler
           onHandlerStateChange={this.onSingleTap}
-          waitFor={["double_tap","flatlist_pinch","flatlist_pan"]}
+          waitFor={["double_tap","pinch","pan","flastlist"]}
           numberOfTaps={1}
-          maxDurationMs={200}
         >
           <TapGestureHandler
             id="double_tap"
-            waitFor={Platform.OS === 'ios' ? ["flatlist_pinch","flatlist_pan"] : []}
+            waitFor={["pinch","pan","flastlist"]}
             onHandlerStateChange={this.onDoubleTap}
             numberOfTaps={2}
           >
             <PanGestureHandler
-              id="flatlist_pan"
-              simultaneousHandlers="flatlist_pinch"
-              waitFor="flatlist"
+              id="pan"
+              simultaneousHandlers="pinch"
               onGestureEvent={this.onPan}
               onEnded={this.onPanEnd}
               minPointers={2}
@@ -293,8 +291,8 @@ export default class InteractiveFlatList extends Component {
               avgTouches
             >
               <PinchGestureHandler
-                id="flatlist_pinch"
-                simultaneousHandlers="flatlist_pan"
+                id="pinch"
+                simultaneousHandlers="pan"
                 onGestureEvent={this.onPinch}
                 enabled={true}
               >
@@ -320,7 +318,7 @@ export default class InteractiveFlatList extends Component {
             </PanGestureHandler>
           </TapGestureHandler>
         </TapGestureHandler>
-    </View>
+      </View>
     )
   }
 }
