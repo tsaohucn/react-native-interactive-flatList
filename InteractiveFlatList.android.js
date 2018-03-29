@@ -120,6 +120,10 @@ export default class InteractiveFlatList extends Component {
     }
   }
 
+  onPanStart = event => {
+    this.AnimatedFlatList.setNativeProps({scrollEnabled: false})
+  }
+
   onPan = event => {
     if (event.nativeEvent.numberOfTouches === 2) {
       // 雙指平移
@@ -198,9 +202,13 @@ export default class InteractiveFlatList extends Component {
     this.isSingleReleasePan = true
     this.isSetSingleFocus = false
     this.isSetDoubleFocus = false
-    if (!this.isAnimated) {
+    //if (!this.isAnimated) {
       this.releaseAnimated()
-    }
+    //}
+  }
+
+  onPinchStart = event => {
+    this.AnimatedFlatList.setNativeProps({scrollEnabled: false})
   }
 
   onPinch = event => {
@@ -215,6 +223,10 @@ export default class InteractiveFlatList extends Component {
         Animated.event([{ scale: this.animatedScale}])({scale: scale})
       }
     }
+  }
+
+  onPinchEnd = event => {
+    this.AnimatedFlatList.setNativeProps({scrollEnabled: true})
   }
 
   releaseAnimated = () => {
@@ -294,8 +306,8 @@ export default class InteractiveFlatList extends Component {
             <PanGestureHandler
               id="pan"
               simultaneousHandlers="pinch"
+              onActivated={this.onPanStart}
               onGestureEvent={this.onPan}
-              onEnded={this.onPanEnd}
               minPointers={2}
               maxPointers={2}
               avgTouches
@@ -303,7 +315,9 @@ export default class InteractiveFlatList extends Component {
               <PinchGestureHandler
                 id="pinch"
                 simultaneousHandlers="pan"
+                onActivated={this.onPinchStart}
                 onGestureEvent={this.onPinch}
+                onEnded={this.onPinchEnd}
                 enabled={true}
               >
                 <NativeViewGestureHandler
