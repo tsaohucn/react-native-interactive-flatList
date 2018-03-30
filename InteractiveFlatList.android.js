@@ -302,6 +302,7 @@ export default class InteractiveFlatList extends Component {
             id="double_tap"
             onHandlerStateChange={this.onDoubleTap}
             numberOfTaps={2}
+            maxDelayMs={100}
           >
             <PanGestureHandler
               id="pan"
