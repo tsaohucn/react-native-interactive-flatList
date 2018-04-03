@@ -294,7 +294,6 @@ export default class InteractiveFlatList extends Component {
                 id="pinch"
                 simultaneousHandlers="pan"
                 onGestureEvent={this.onPinch}
-                enabled={true}
               >
                 <NativeViewGestureHandler
                   id="flatlist"

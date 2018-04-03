@@ -23,6 +23,7 @@ export default class InteractiveFlatList extends Component {
   constructor(props) {
     super(props)
     this.AnimatedFlatList = null
+    this.scale = 1
     this.lastScale = 1
     this.focusPointX = 0
     this.isSingleReleasePan = true
@@ -46,7 +47,10 @@ export default class InteractiveFlatList extends Component {
     this.getBoundaryOffset = getBoundaryOffset.bind(this)
     this.parallelAnimated = parallelAnimated.bind(this)
     this.parallelWithoutScaleAnimated = parallelWithoutScaleAnimated.bind(this)
-    this.enableTap
+    this.enableTap = false
+    this.offsetX = 0
+    this.offsetY = 0
+    this.previousScale = 1
   }
 
   componentWillMount() {
@@ -136,6 +140,7 @@ export default class InteractiveFlatList extends Component {
           this.animatedScale.stopAnimation(scaleValue => { 
             this.animatedOffsetX.stopAnimation(xValue => {
               this.animatedOffsetY.stopAnimation(yValue => {
+                this.scale = scaleValue
                 this.lastScale = scaleValue
                 this.isAnimated = false
               })
@@ -146,18 +151,14 @@ export default class InteractiveFlatList extends Component {
       if (!this.isAnimated) {
         if (!this.isSetDoubleFocus) {
           this.isSetDoubleFocus = true
-          this.focusPointX = (event.nativeEvent.absoluteX - width/2)/this.animatedScale._value - this.animatedOffsetX._value
-          this.focusPointY = (event.nativeEvent.absoluteY - height/2)/this.animatedScale._value - this.animatedOffsetY._value
+          this.focusPointX = (event.nativeEvent.absoluteX - width/2)/this.scale - this.animatedOffsetX._value
+          this.focusPointY = (event.nativeEvent.absoluteY - height/2)/this.scale - this.animatedOffsetY._value
         }
         const magnifierCenterX = event.nativeEvent.absoluteX - width/2 // 目前雙手中心
         const magnifierCenterY = event.nativeEvent.absoluteY - height/2 // 目前雙手中心
-        const offsetX = magnifierCenterX/this.animatedScale._value-this.focusPointX // 關注點到雙手中心需要的偏移量
-        const offsetY = magnifierCenterY/this.animatedScale._value-this.focusPointY // 關注點到雙手中心需要的偏移量
-        Animated.event(
-          [{ offsetX: this.animatedOffsetX,
-             offsetY: this.animatedOffsetY
-          }]
-        )({offsetX: offsetX,offsetY: offsetY})
+        this.offsetX = magnifierCenterX/this.scale-this.focusPointX // 關注點到雙手中心需要的偏移量
+        this.offsetY = magnifierCenterY/this.scale-this.focusPointY // 關注點到雙手中心需要的偏移量
+        this.AnimatedFlatList.setNativeProps({style: {transform: [{scale: this.scale},{translateX: this.offsetX},{translateY: this.offsetY}]}})
       }
     } else {
       if (!(!this.isDoubleReleasePan && this.isSingleReleasePan)) {
@@ -177,21 +178,17 @@ export default class InteractiveFlatList extends Component {
           this.lastPointX = event.nativeEvent.absoluteX
           this.lastPointY = event.nativeEvent.absoluteY
         }
-        if (this.animatedScale._value > 1) {
+        if (this.scale > 1) {
           // 單指平移
           const diffX = (event.nativeEvent.absoluteX - this.lastPointX)/3
           const diffY = (event.nativeEvent.absoluteY - this.lastPointY)/3
           const offsetX = diffX + this.lastTranslationX
           const offsetY = diffY + this.lastTranslationY
-          const offsetBoundaryX = (this.animatedScale._value*width/2-width/4)/this.animatedScale._value
-          const offsetBoundaryY = (this.animatedScale._value*height/2-height/4)/this.animatedScale._value
-          offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/(this.animatedScale._value*5)) : offsetX
-          offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(this.animatedScale._value*1.5)) : offsetY
-          Animated.event(
-            [{ offsetX: this.animatedOffsetX,
-               offsetY: this.animatedOffsetY
-            }]
-          )({offsetX: offsetX,offsetY: offsetY})
+          const offsetBoundaryX = (this.scale*width/2-width/4)/this.scale
+          const offsetBoundaryY = (this.scale*height/2-height/4)/this.scale
+          this.offsetX = Math.abs(offsetX) >= offsetBoundaryX ? offsetBoundaryX*Math.sign(offsetX) + ((offsetX - offsetBoundaryX*Math.sign(offsetX))/(this.scale*5)) : offsetX
+          this.offsetY = Math.abs(offsetY) >= offsetBoundaryY ? offsetBoundaryY*Math.sign(offsetY) + ((offsetY - offsetBoundaryY*Math.sign(offsetY))/(this.scale*1.5)) : offsetY
+          this.AnimatedFlatList.setNativeProps({style: {transform: [{scale: this.scale},{translateX: this.offsetX},{translateY: this.offsetY}]}})
         }
       }
     }
@@ -202,9 +199,6 @@ export default class InteractiveFlatList extends Component {
     this.isSingleReleasePan = true
     this.isSetSingleFocus = false
     this.isSetDoubleFocus = false
-    //if (!this.isAnimated) {
-      this.releaseAnimated()
-    //}
   }
 
   onPinchStart = event => {
@@ -214,27 +208,40 @@ export default class InteractiveFlatList extends Component {
   onPinch = event => {
     if (!this.isAnimated) {
       if (event.nativeEvent.numberOfTouches === 2) {
-        let scale = (event.nativeEvent.scale-1)+this.lastScale
-        if (scale > 3) {
-          scale = 3
-        } else if (scale < 0.5) {
-          scale = 0.5
-        }
-        Animated.event([{ scale: this.animatedScale}])({scale: scale})
+          let scale = event.nativeEvent.scale*this.lastScale
+          
+          //let scale = (event.nativeEvent.scale-1)+this.lastScale
+          if (scale > 3) {
+            scale = 3
+          } else if (scale < 0.5) {
+            scale = 0.5
+          }
+          this.scale = scale
+          //this.lastScale = scale
+          //this.AnimatedFlatList.setNativeProps({style: {transform: [{scale: this.sacle}]}})
+      } else {
+
       }
     }
   }
 
   onPinchEnd = event => {
-    this.AnimatedFlatList.setNativeProps({scrollEnabled: true})
+    //this.AnimatedFlatList.setNativeProps({scrollEnabled: true})
+    //this.releaseAnimated()
   }
 
   releaseAnimated = () => {
     this.isAnimated = true
+    this.animatedScale.setValue(this.scale)
+    this.animatedOffsetX.setValue(this.offsetX)
+    this.animatedOffsetY.setValue(this.offsetY)
     if (this.animatedScale._value < 1) {
       const done = result => {
         if (result.finished) {
+          this.scale = 1
           this.lastScale = 1
+          this.offsetX = 0
+          this.offsetY = 0
           this.isAnimated = false
         }        
       }
@@ -247,7 +254,10 @@ export default class InteractiveFlatList extends Component {
     } else if (this.animatedScale._value == 1) {
       const done = result => {
         if (result.finished) {
+          this.scale = 1
           this.lastScale = 1
+          this.offsetX = 0
+          this.offsetY = 0
           this.isAnimated = false
         }        
       }
@@ -257,26 +267,32 @@ export default class InteractiveFlatList extends Component {
         done: done     
       })
     } else if (this.animatedScale._value > 1 && this.animatedScale._value <= 2) {
+      const { offsetX, offsetY } = this.getBoundaryOffset(this.animatedScale._value)
       const done = result => {
         if (result.finished) {
+          this.scale = this.animatedScale._value
           this.lastScale = this.animatedScale._value
+          this.offsetX = offsetX
+          this.offsetY = offsetY
           this.isAnimated = false
         }        
       }
-      const { offsetX, offsetY } = this.getBoundaryOffset(this.animatedScale._value)
       this.parallelWithoutScaleAnimated({
         offsetX: offsetX,
         offsetY: offsetY,
         done: done     
       })
     } else {
+      const { offsetX, offsetY } = this.getBoundaryOffset(2)
       const done = result => {
         if (result.finished) {
+          this.scale  = 2
           this.lastScale = 2
+          this.offsetX = offsetX
+          this.offsetY = offsetY
           this.isAnimated = false
         }        
       }
-      const { offsetX, offsetY } = this.getBoundaryOffset(2)
       this.parallelAnimated({
         scale: 2,
         offsetX: offsetX,
@@ -297,21 +313,32 @@ export default class InteractiveFlatList extends Component {
           onHandlerStateChange={this.onSingleTap}
           waitFor={["double_tap","pinch","pan","flastlist"]}
           numberOfTaps={1}
+          enabled={false}
         >
           <TapGestureHandler
             id="double_tap"
             onHandlerStateChange={this.onDoubleTap}
             numberOfTaps={2}
             maxDelayMs={100}
+            enabled={false}
           >
             <PanGestureHandler
               id="pan"
               simultaneousHandlers="pinch"
               onActivated={this.onPanStart}
               onGestureEvent={this.onPan}
+              onEnded={this.onPanEnd}
               minPointers={2}
               maxPointers={2}
               avgTouches
+              minDeltaX={0}
+              minDeltaY={0}
+              minOffsetX={0}
+              minOffsetY={0}
+              minVelocityX={0}
+              minVelocityY={0}
+              minDist={0}
+              //enabled={false}
             >
               <PinchGestureHandler
                 id="pinch"
@@ -319,7 +346,6 @@ export default class InteractiveFlatList extends Component {
                 onActivated={this.onPinchStart}
                 onGestureEvent={this.onPinch}
                 onEnded={this.onPinchEnd}
-                enabled={true}
               >
                 <NativeViewGestureHandler
                   id="flatlist"
