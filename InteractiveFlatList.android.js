@@ -209,16 +209,12 @@ export default class InteractiveFlatList extends Component {
     if (!this.isAnimated) {
       if (event.nativeEvent.numberOfTouches === 2) {
           let scale = event.nativeEvent.scale*this.lastScale
-          
-          //let scale = (event.nativeEvent.scale-1)+this.lastScale
           if (scale > 3) {
             scale = 3
           } else if (scale < 0.5) {
             scale = 0.5
           }
           this.scale = scale
-          //this.lastScale = scale
-          //this.AnimatedFlatList.setNativeProps({style: {transform: [{scale: this.sacle}]}})
       } else {
 
       }
@@ -226,8 +222,7 @@ export default class InteractiveFlatList extends Component {
   }
 
   onPinchEnd = event => {
-    //this.AnimatedFlatList.setNativeProps({scrollEnabled: true})
-    //this.releaseAnimated()
+    this.AnimatedFlatList.setNativeProps({scrollEnabled: true})
   }
 
   releaseAnimated = () => {
@@ -313,14 +308,12 @@ export default class InteractiveFlatList extends Component {
           onHandlerStateChange={this.onSingleTap}
           waitFor={["double_tap","pinch","pan","flastlist"]}
           numberOfTaps={1}
-          enabled={false}
         >
           <TapGestureHandler
             id="double_tap"
             onHandlerStateChange={this.onDoubleTap}
             numberOfTaps={2}
             maxDelayMs={100}
-            enabled={false}
           >
             <PanGestureHandler
               id="pan"
@@ -338,7 +331,6 @@ export default class InteractiveFlatList extends Component {
               minVelocityX={0}
               minVelocityY={0}
               minDist={0}
-              //enabled={false}
             >
               <PinchGestureHandler
                 id="pinch"
