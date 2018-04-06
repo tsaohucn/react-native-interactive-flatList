@@ -89,6 +89,7 @@ export default class InteractiveFlatList extends Component {
             offsetY: -this.doubleTapY/2,
             done: done
           })
+          this.props.onDoubleClick && this.props.onDoubleClick()
         } else if (this.animatedScale._value > 1 ) {
           const done = result => {
             if (result.finished) {
@@ -102,6 +103,7 @@ export default class InteractiveFlatList extends Component {
             offsetY: 0,
             done: done
           })
+          this.props.onDoubleClick && this.props.onDoubleClick()
         }
       }
     }
@@ -122,10 +124,6 @@ export default class InteractiveFlatList extends Component {
         }    
       }
     }
-  }
-
-  onPanStart = event => {
-    this.AnimatedFlatList.setNativeProps({scrollEnabled: false})
   }
 
   onPan = event => {
@@ -194,14 +192,8 @@ export default class InteractiveFlatList extends Component {
     }
   }
 
-  onPanEnd = event => {
-    this.isDoubleReleasePan = true
-    this.isSingleReleasePan = true
-    this.isSetSingleFocus = false
-    this.isSetDoubleFocus = false
-  }
-
   onPinchStart = event => {
+    this.props.onPinchStart && this.props.onPinchStart()
     this.AnimatedFlatList.setNativeProps({scrollEnabled: false})
   }
 
@@ -215,14 +207,16 @@ export default class InteractiveFlatList extends Component {
             scale = 0.5
           }
           this.scale = scale
-      } else {
-
       }
     }
   }
 
   onPinchEnd = event => {
     this.AnimatedFlatList.setNativeProps({scrollEnabled: true})
+    this.isDoubleReleasePan = true
+    this.isSingleReleasePan = true
+    this.isSetSingleFocus = false
+    this.isSetDoubleFocus = false
   }
 
   releaseAnimated = () => {
@@ -318,12 +312,12 @@ export default class InteractiveFlatList extends Component {
             <PanGestureHandler
               id="pan"
               simultaneousHandlers="pinch"
-              onActivated={this.onPanStart}
+              //onActivated={this.onPanStart}
               onGestureEvent={this.onPan}
-              onEnded={this.onPanEnd}
+              //onEnded={this.onPanEnd}
+              avgTouches
               minPointers={2}
               maxPointers={2}
-              avgTouches
               minDeltaX={0}
               minDeltaY={0}
               minOffsetX={0}
@@ -372,7 +366,9 @@ InteractiveFlatList.propTypes = {
   renderItem: PropTypes.func.isRequired,
   onSingleClickTopArea: PropTypes.func,
   onSingleClickMiddleArea: PropTypes.func,
-  onSingleClickBottomArea: PropTypes.func
+  onSingleClickBottomArea: PropTypes.func,
+  onDoubleClick: PropTypes.func,
+  onPinchStart: PropTypes.func
 }
 
 InteractiveFlatList.defaultProps = {
