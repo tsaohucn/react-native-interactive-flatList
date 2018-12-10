@@ -8,13 +8,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://git.av-bobo.com/xc/react-native-interactive-flatList.git"
+    "url": "https://github.com/tsaohucn/react-native-interactive-flatList.git"
   },
   "dependencies": {
     "react": "^16.3.0-alpha.1",
     "react-native": "^0.54.0",
     "prop-types": "^15.5.10",
-    "react-native-gesture-handler": "git@github.com:tsaohucn/react-native-gesture-handler.git"
+    "react-native-gesture-handler": "tsaohucn/react-native-gesture-handler.git"
   },
   "keywords": [
     "react native interactive flatList"
@@ -22,7 +22,7 @@
   "author": "Tsao",
   "license": "ISC",
   "bugs": {
-    "url": "http://git.av-bobo.com/xc/react-native-interactive-flatList/issues"
+    "url": "https://github.com/tsaohucn/react-native-interactive-flatList/issues"
   },
-  "homepage": "http://git.av-bobo.com/xc/react-native-interactive-flatList#readme"
+  "homepage": "https://github.com/tsaohucn/react-native-interactive-flatList#readme"
 }
